@@ -16,7 +16,7 @@ El núcleo del taller consiste en diseñar e integrar un ecosistema de seguridad
 
 ## Modelo Relacional y Entidades
 
-El dominio de datos unifica las especificaciones mecánicas del vehículo con las condiciones comerciales de la oferta en una sola entidad de publicación (`PUBLICATION`), vinculando al vendedor (`USER`), la galería multimedia (`VEHICLE_IMAGE`) y los registros de trazabilidad de seguridad (`AUDIT_LOG`).
+El dominio de datos unifica las especificaciones mecánicas del vehículo, la fotografía del automotor (`imageUrl`) y las condiciones comerciales de la oferta en una sola entidad de publicación (`PUBLICATION`), vinculando al vendedor (`USER`) y los registros de trazabilidad de seguridad (`AUDIT_LOG`).
 
 ```mermaid
 ---
@@ -41,7 +41,7 @@ erDiagram
     }
 
     PUBLICATION {
-        int idVehicle PK
+        int idPublication PK
         int idUser FK
         string brand
         string model
@@ -54,15 +54,8 @@ erDiagram
         boolean isAuthorized
         datetime publishedAt 
         datetime soldAt "nullable"
-		int mileage
-    }
-
-    VEHICLE_IMAGE {
-        int idImage PK
-        int idVehicle FK
+        int mileage
         string imageUrl
-        boolean isPrimary
-        datetime createdAt
     }
 
     AUDIT_LOG {
@@ -80,21 +73,18 @@ erDiagram
     }
 
     USER ||--o{ PUBLICATION : "publishes"
-    PUBLICATION ||--o{ VEHICLE_IMAGE : "has"
     USER |o--o{ AUDIT_LOG : "generates"
 ```
 
 ### Descripción de Entidades
 
-* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`) y rol asignado (`role`: Admin, Vendedor) para el control de acceso basado en roles (RBAC).
-* **`PUBLICATION`**: Modelo consolidado que unifica las propiedades físicas del vehículo y las condiciones comerciales de la oferta. Vincula al vendedor (`idUser`), datos técnicos del automotor (`brand`, `model`, `year`, `color`, `condition`, `mileage`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`).
-* **`VEHICLE_IMAGE`**: Gestiona las imágenes fotográficas asociadas a una publicación (`idVehicle`), registrando la URL (`imageUrl`), el indicador de imagen principal o de portada (`isPrimary`) y la fecha de carga (`createdAt`).
+* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`), estado activo (`isActive`) y rol asignado (`role`: Admin, Vendedor) para el control de acceso basado en roles (RBAC).
+* **`PUBLICATION`**: Modelo consolidado con clave primaria `idPublication` que unifica las propiedades físicas del vehículo (`brand`, `model`, `year`, `color`, `condition`, `mileage`), la imagen asociada (`imageUrl`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`), vinculado al vendedor (`idUser`).
 * **`AUDIT_LOG`**: Registro inmutable de trazabilidad y eventos de seguridad del modelo AAA. Captura al usuario ejecutor (`idUser` nullable para eventos anónimos o no autenticados), rol (`role`), acción ejecutada (`action`, `method`, `endpoint`), dirección IP (`ipAddress`), telemetría de respuesta (`statusCode`, `latencyMs`), metadatos contextuales (`details`) y marca de tiempo (`timestamp`).
 
 #### Relaciones del Modelo
 
 * **`USER ||--o{ PUBLICATION`**: Un usuario puede crear y publicar múltiples ofertas de vehículos.
-* **`PUBLICATION ||--o{ VEHICLE_IMAGE`**: Una publicación dispone de una o varias imágenes fotográficas para su visualización.
 * **`USER |o--o{ AUDIT_LOG`**: Un usuario genera registros de auditoría al interactuar con el sistema (relación opcional en el extremo del usuario para registrar también acciones no autenticadas).
 
 ---
@@ -113,7 +103,8 @@ marketplace/
 ├── internal/
 │   ├── models/                  # Entidades de dominio y definiciones de structs
 │   │   ├── user.go              # Entidad User y roles (Admin, Vendedor)
-│   │   └── car.go               # Entidades Publication y VehicleImage
+│   │   ├── publication.go       # Entidad Publication y especificaciones del vehículo
+│   │   └── audit_log.go         # Entidad AuditLog para trazabilidad AAA
 │   │
 │   ├── handlers/                # Controladores HTTP de Gin (Transporte)
 │   │   ├── user_handler.go      # Handlers de autenticación y usuarios
