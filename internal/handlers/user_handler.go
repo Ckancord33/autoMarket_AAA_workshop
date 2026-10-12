@@ -27,7 +27,6 @@ func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.Hand
 	userGroup.GET("/:id", h.GetUser)
 	userGroup.GET("/", h.GetAllUsers)
 	userGroup.PATCH("/:id", h.UpdateUser)
-	userGroup.DELETE("/:id", h.DeleteUser)
 }
 
 // CreateUser maneja la petición POST para crear un usuario.
@@ -64,7 +63,14 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 // GetAllUsers maneja la petición GET para obtener todos los usuarios (Get global).
 func (h *UserHandler) GetAllUsers(c *gin.Context) {
 
-	users, err := h.userService.GetAll()
+	var filters UserFilterRequest
+
+	if err := c.ShouldBindQuery(&filters); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Filtros inválidos"})
+		return
+	}
+
+	users, err := h.userService.GetAll(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al listar los usuarios"})
 		return
@@ -93,17 +99,4 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, updatedUser)
-}
-
-// DeleteUser maneja la petición DELETE para eliminar un usuario.
-func (h *UserHandler) DeleteUser(c *gin.Context) {
-	id := c.Param("id")
-
-	err := h.userService.Delete(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al eliminar el usuario"})
-		return
-	}
-
-	c.JSON(http.StatusNoContent, nil)
 }
