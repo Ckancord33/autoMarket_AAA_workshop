@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"automarket/internal/middleware"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,17 +26,17 @@ func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.Hand
 
 	protected := router.Group("/")
 
-	protected.Use(middlewares.RequireAuth()) 
-	{	
-		userGroup.GET("/:id", h.GetUser)
-		managementGroup := userGroup.Group("/management")
-		managementGroup.Use(middlewares.RequireRoles("admin"))
+	protected.Use(middleware.RequireAuth())
+	{
+		protected.GET("/:id", h.GetUser)
+		managementGroup := protected.Group("/management")
+		managementGroup.Use(middleware.RequireRoles("admin"))
 		{
-			userGroup.GET("/", h.GetAllUsers)
-			userGroup.PATCH("/:id", h.UpdateUser)
+			managementGroup.GET("/", h.GetAllUsers)
+			managementGroup.PATCH("/:id", h.UpdateUser)
 		}
 	}
-	
+
 }
 
 // CreateUser maneja la petición POST para crear un usuario.
@@ -52,7 +54,18 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, user)
+	// Autologin: Generar token JWT tras la creación del usuario
+	token, err := middleware.GenerateJWT(strconv.Itoa(user.IDUser), user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Usuario creado pero no se pudo generar el token"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Usuario creado exitosamente",
+		"token":   token,
+		"user":    user,
+	})
 }
 
 // GetUser maneja la petición GET para obtener un usuario por ID.

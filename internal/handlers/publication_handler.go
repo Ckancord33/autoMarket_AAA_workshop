@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"automarket/internal/middleware"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,18 +18,18 @@ func NewPublicationHandler(ps PublicationService) *PublicationHandler {
 }
 
 func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
-	
+
 	router.GET("/", h.GetAllPublication)
 
 	protected := router.Group("/")
 
-	protected.Use(middlewares.RequireAuth()) 
+	protected.Use(middleware.RequireAuth())
 	{
 		protected.POST("/", h.CreatePublication)
 		protected.GET("/:id", h.GetMyPublication)
 		protected.PATCH("/:id", h.UpdatePublication)
 	}
-	
+
 }
 
 func (h *PublicationHandler) CreatePublication(c *gin.Context) {
