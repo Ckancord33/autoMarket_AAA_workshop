@@ -16,84 +16,86 @@ El núcleo del taller consiste en diseñar e integrar un ecosistema de seguridad
 
 ## Modelo Relacional y Entidades
 
-El dominio de datos separa estrictamente las propiedades físicas del automóvil de las condiciones comerciales de la oferta publicitaria.
+El dominio de datos unifica las especificaciones mecánicas del vehículo con las condiciones comerciales de la oferta en una sola entidad de publicación (`PUBLICATION`), vinculando al vendedor (`USER`), la galería multimedia (`VEHICLE_IMAGE`) y los registros de trazabilidad de seguridad (`AUDIT_LOG`).
 
 ```mermaid
 ---
 config:
-  theme: mc
-  look: neo
-title: AutoMarket Relational Diagram
+  theme: redux-color
+  look: classic
+title: AutoMarket Relational Diagram (Fused Vehicle & Listing)
 ---
 erDiagram
-	direction TB
-	USER {
-		int idUser PK ""  
-		string email UK ""  
-		string password  ""  
-		string name  ""  
-		string role  ""  
-		string phone  ""  
-		string city  ""  
-		datetime createdAt  ""  
-	}
+    direction TB
 
-	AUDIT_LOG {
-		bigint idLog PK ""  
-		int idUser FK "nullable"  
-		string role  ""  
-		string action  ""  
-		string method  ""  
-		string endpoint  ""  
-		string ipAddress  ""  
-		int statusCode  ""  
-		int latencyMs  ""  
-		string details  "nullable"  
-		datetime timestamp  ""  
-	}
+    USER {
+        int idUser PK
+        string email UK
+        string password
+        string name
+        string role
+        string phone
+        string city
+        datetime createdAt
+        boolean isActive
+    }
 
-	VEHICLE {
-		int idVehicle PK ""  
-		string make  ""  
-		string model  ""  
-		int year  ""   
-		string color  ""  
-		string condition  ""  
-	}
+    PUBLICATION {
+        int idVehicle PK
+        int idUser FK
+        string brand
+        string model
+        int year
+        string color
+        string condition
+        decimal price
+        string description
+        string status
+        boolean isAuthorized
+        datetime publishedAt 
+        datetime soldAt "nullable"
+		int mileage
+    }
 
-	CAR_IMAGE {
-		int idImage PK ""  
-		int idVehicle FK ""  
-		string imageUrl  ""  
-		boolean isPrimary  ""  
-		datetime createdAt  ""  
-	}
+    VEHICLE_IMAGE {
+        int idImage PK
+        int idVehicle FK
+        string imageUrl
+        boolean isPrimary
+        datetime createdAt
+    }
 
-	LISTING {
-		int idListing PK ""  
-		int idUser FK ""  
-		int idVehicle FK,UK ""  
-		string status  ""  
-		decimal price  ""  
-		string description  ""  
-		datetime publishedAt  ""  
-		boolean isAuthorized  ""  
-		datetime soldAt  ""  
-	}
+    AUDIT_LOG {
+        bigint idLog PK
+        int idUser FK "nullable"
+        string role
+        string action
+        string method
+        string endpoint
+        string ipAddress
+        int statusCode
+        int latencyMs
+        string details "nullable"
+        datetime timestamp
+    }
 
-	USER||--o{LISTING:"publishes"
-	LISTING||--||VEHICLE:"associates"
-	VEHICLE||--|{CAR_IMAGE:"has"
-	USER|o--o{AUDIT_LOG:"generates"
+    USER ||--o{ PUBLICATION : "publishes"
+    PUBLICATION ||--o{ VEHICLE_IMAGE : "has"
+    USER |o--o{ AUDIT_LOG : "generates"
 ```
 
 ### Descripción de Entidades
 
-* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), datos de contacto y perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`) y rol asignado (`role`: Admin, Vendedor) para la resolución de políticas RBAC.
-* **`VEHICLE`**: Contiene las especificaciones técnicas, físicas y mecánicas del automóvil (`make`, `model`, `year`, `color`, `condition`).
-* **`CAR_IMAGE`**: Gestiona las imágenes multimedia asociadas a cada vehículo (`idVehicle`), registrando la URL (`imageUrl`), el indicador de imagen principal (`isPrimary`) y la fecha de subida (`createdAt`).
-* **`LISTING`**: Representa el anuncio comercial en la plataforma. Vincula de forma exclusiva al vendedor (`idUser`) con el vehículo ofertado (`idVehicle`), centralizando el precio (`price`), estado de publicación (`status`), descripción (`description`), fecha de publicación (`publishedAt`), aprobación administrativa (`isAuthorized`) y cierre de venta (`soldAt`).
-* **`AUDIT_LOG`**: Centraliza el registro inmutable de trazabilidad y auditoría del modelo AAA. Almacena las operaciones de los usuarios (con `idUser` nullable para peticiones no autenticadas o fallidas), rol (`role`), acción ejecutada (`action`, `method`, `endpoint`), dirección IP (`ipAddress`), telemetría de respuesta (`statusCode`, `latencyMs`), metadatos adicionales (`details`) y marca de tiempo (`timestamp`).
+* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`) y rol asignado (`role`: Admin, Vendedor) para el control de acceso basado en roles (RBAC).
+* **`PUBLICATION`**: Modelo consolidado que unifica las propiedades físicas del vehículo y las condiciones comerciales de la oferta. Vincula al vendedor (`idUser`), datos técnicos del automotor (`brand`, `model`, `year`, `color`, `condition`, `mileage`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`).
+* **`VEHICLE_IMAGE`**: Gestiona las imágenes fotográficas asociadas a una publicación (`idVehicle`), registrando la URL (`imageUrl`), el indicador de imagen principal o de portada (`isPrimary`) y la fecha de carga (`createdAt`).
+* **`AUDIT_LOG`**: Registro inmutable de trazabilidad y eventos de seguridad del modelo AAA. Captura al usuario ejecutor (`idUser` nullable para eventos anónimos o no autenticados), rol (`role`), acción ejecutada (`action`, `method`, `endpoint`), dirección IP (`ipAddress`), telemetría de respuesta (`statusCode`, `latencyMs`), metadatos contextuales (`details`) y marca de tiempo (`timestamp`).
+
+#### Relaciones del Modelo
+
+* **`USER ||--o{ PUBLICATION`**: Un usuario puede crear y publicar múltiples ofertas de vehículos.
+* **`PUBLICATION ||--o{ VEHICLE_IMAGE`**: Una publicación dispone de una o varias imágenes fotográficas para su visualización.
+* **`USER |o--o{ AUDIT_LOG`**: Un usuario genera registros de auditoría al interactuar con el sistema (relación opcional en el extremo del usuario para registrar también acciones no autenticadas).
 
 ---
 
@@ -105,11 +107,13 @@ El código está estructurado bajo una arquitectura por capas (*Layered Architec
 marketplace/
 ├── cmd/
 │   └── server/
-│       └── main.go              # Punto de entrada. Inicializa Gin, la DB y arranca el servidor.
+│       └── main.go              # Punto de entrada. Inicializa Gin y arranca el servidor.
+├── data/                        # Persistencia local en archivos JSON (Runtime)
+│   ├── .gitkeep                 
 ├── internal/
 │   ├── models/                  # Entidades de dominio y definiciones de structs
-│   │   ├── user.go              # Entidad User y roles (Admin, Vendedor, Cliente)
-│   │   └── car.go               # Entidad Vehicle y Listing
+│   │   ├── user.go              # Entidad User y roles (Admin, Vendedor)
+│   │   └── car.go               # Entidades Publication y VehicleImage
 │   │
 │   ├── handlers/                # Controladores HTTP de Gin (Transporte)
 │   │   ├── user_handler.go      # Handlers de autenticación y usuarios
@@ -124,22 +128,23 @@ marketplace/
 │   │   ├── user_service.go      # Lógica de registro, emisión de credenciales y permisos
 │   │   └── car_service.go       # Flujo de publicación, moderación y venta
 │   │
-│   └── repositories/            # Capa de persistencia y consultas SQL
-│       ├── user_repo.go         # Operaciones SQL sobre la tabla User
-│       └── car_repo.go          # Operaciones SQL sobre Vehicle y Listing
+│   └── repositories/            # Capa de persistencia (Operaciones sobre archivos JSON)
+│       ├── user_repo.go         # Lectura y escritura sobre data/user.json
+│       └── car_repo.go          # Lectura y escritura sobre publicaciones e imágenes
 │
 ├── pkg/                         # Módulos transversales desacoplados del dominio
-│   ├── database/
-│   │   └── connection.go        # Gestión del pool de conexiones SQL
+│   ├── database/                # Helpers de persistencia, I/O y bloqueo concurrente
 │   └── response/
 │       └── http_response.go     # Formato estándar de respuestas JSON
 │
 ├── web/                         # Vistas y assets estáticos (SSR con Gin)
-│   ├── static/                  # Hojas de estilo CSS, JS e imágenes
-│   └── templates/               # Plantillas HTML procesadas por el motor web
+│   ├── static/                  # Archivos estáticos
+│   │   ├── css/                 # Hojas de estilo CSS (main.css)
+│   │   └── uploads/             # Almacenamiento local de imágenes de los autos
+│   └── templates/               # Plantillas HTML procesadas por el motor web (.html)
 │
 ├── config/
-│   └── config.go                # Carga de configuración y variables de entorno
+│   └── config.go                # Constantes y configuración interna del proyecto
 │
 ├── go.mod
 └── go.sum
@@ -152,7 +157,7 @@ marketplace/
 ### Prerrequisitos
 
 * **Go**: Versión 1.22 o superior instalada.
-* **Base de datos**: Servidor de base de datos relacional (PostgreSQL / MySQL) configurado y accesible.
+* **Persistencia sin base de datos externa**: Por requerimientos del taller no se utilizan dependencias externas más allá del framework **Gin**. El almacenamiento y persistencia de datos se gestiona directamente en archivos JSON dentro del directorio `data/` (`user.json`, etc.) empleando las librerías estándar de Go (`encoding/json`, `os`, `sync`).
 
 ### Pasos de Ejecución
 
@@ -167,24 +172,12 @@ marketplace/
    go mod download
    ```
 
-3. **Configurar variables de entorno:**
-   Cree un archivo `.env` en la raíz del proyecto tomando como base los parámetros requeridos por `config/config.go`:
-   ```env
-   PORT=8080
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_USER=postgres
-   DB_PASSWORD=secret
-   DB_NAME=automarket_db
-   AUTH_SECRET_KEY=clave_secreta_para_firmas_hmac_sha256
-   ```
-
-4. **Ejecutar el servidor:**
+3. **Ejecutar el servidor:**
    ```bash
    go run cmd/server/main.go
    ```
 
-5. **Acceso al servicio:**
+4. **Acceso al servicio:**
    El servicio estará disponible en `http://localhost:8080`.
 
 ---

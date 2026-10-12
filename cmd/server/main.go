@@ -8,16 +8,16 @@ import (
 )
 
 func main() {
-	// Rutas relativas a los directorios de templates y estilos
+	// Rutas relativas a los directorios de templates y archivos estáticos
 	// (Se asume que el comando se ejecuta desde la raíz del proyecto autoMarket_AAA_workshop)
 	templatesDir := filepath.Join("web", "templates")
-	stylesDir := filepath.Join(templatesDir, "styles")
+	staticDir := filepath.Join("web", "static")
 
 	// Parsear los templates .html dentro del directorio de templates
 	tmpl := template.Must(template.ParseGlob(filepath.Join(templatesDir, "*.html")))
 
-	// Habilitar el servidor de archivos estáticos para compartir el CSS
-	http.Handle("/styles/", http.StripPrefix("/styles/", http.FileServer(http.Dir(stylesDir))))
+	// Habilitar el servidor de archivos estáticos para CSS, JS e imágenes
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 
 	// Ruta para el Login (/login)
 	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
