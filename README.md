@@ -21,9 +21,9 @@ El dominio de datos separa estrictamente las propiedades físicas del automóvil
 ```mermaid
 ---
 config:
-  theme: redux-color
-  look: classic
-title: AutoMarket Relational Diagram with Audit Log
+  theme: mc
+  look: neo
+title: AutoMarket Relational Diagram
 ---
 erDiagram
 	direction TB
