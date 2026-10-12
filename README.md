@@ -134,8 +134,10 @@ marketplace/
 │
 ├── pkg/                         # Módulos transversales desacoplados del dominio
 │   ├── database/                # Helpers de persistencia, I/O y bloqueo concurrente
-│   └── response/
-│       └── http_response.go     # Formato estándar de respuestas JSON
+│   ├── response/
+│   │   └── http_response.go     # Formato estándar de respuestas JSON
+│   └── security/                # Utilidades de seguridad criptográfica nativa (AAA)
+│       └── password.go          # Hash seguro con salt aleatorio (SHA-256)
 │
 ├── web/                         # Vistas y assets estáticos (SSR con Gin)
 │   ├── static/                  # Archivos estáticos

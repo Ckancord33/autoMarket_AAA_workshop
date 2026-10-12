@@ -3,16 +3,18 @@ package handlers
 import (
 	"net/http"
 
+	"automarket/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
 // UserHandler actúa como un contenedor para las dependencias (el Service).
 type UserHandler struct {
-	userService UserService // Se asume que UserService es una interfaz ya definida
+	userService services.UserService
 }
 
 // NewUserHandler es la función constructora que inyecta el servicio.
-func NewUserHandler(us UserService) *UserHandler {
+func NewUserHandler(us services.UserService) *UserHandler {
 	return &UserHandler{
 		userService: us,
 	}
@@ -21,7 +23,9 @@ func NewUserHandler(us UserService) *UserHandler {
 // RegisterRoutes ahora incluye las nuevas rutas del CRUD
 func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
 	userGroup := router.Group("/users")
-	userGroup.Use(authMiddleware)
+	if authMiddleware != nil {
+		userGroup.Use(authMiddleware)
+	}
 
 	userGroup.POST("/", h.CreateUser)
 	userGroup.GET("/:id", h.GetUser)
@@ -31,7 +35,7 @@ func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.Hand
 
 // CreateUser maneja la petición POST para crear un usuario.
 func (h *UserHandler) CreateUser(c *gin.Context) {
-	var req CreateUserRequest
+	var req services.CreateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -40,7 +44,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 
 	user, err := h.userService.Create(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error interno del servidor"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -62,8 +66,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 
 // GetAllUsers maneja la petición GET para obtener todos los usuarios (Get global).
 func (h *UserHandler) GetAllUsers(c *gin.Context) {
-
-	var filters UserFilterRequest
+	var filters services.UserFilterRequest
 
 	if err := c.ShouldBindQuery(&filters); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Filtros inválidos"})
@@ -83,7 +86,7 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	id := c.Param("id") // Obtenemos el ID de la URL
 
-	var req UpdateUserRequest
+	var req services.UpdateUserRequest
 
 	// Vinculamos el JSON del body a la estructura req
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,7 +97,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	// Pasamos tanto el ID como los datos a actualizar al servicio
 	updatedUser, err := h.userService.Update(id, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo actualizar el usuario"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo actualizar el usuario: " + err.Error()})
 		return
 	}
 
