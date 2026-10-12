@@ -20,13 +20,21 @@ func NewUserHandler(us UserService) *UserHandler {
 
 // RegisterRoutes ahora incluye las nuevas rutas del CRUD
 func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
-	userGroup := router.Group("/users")
-	userGroup.Use(authMiddleware)
+	router.POST("/", h.CreateUser)
 
-	userGroup.POST("/", h.CreateUser)
-	userGroup.GET("/:id", h.GetUser)
-	userGroup.GET("/", h.GetAllUsers)
-	userGroup.PATCH("/:id", h.UpdateUser)
+	protected := router.Group("/")
+
+	protected.Use(middlewares.RequireAuth()) 
+	{	
+		userGroup.GET("/:id", h.GetUser)
+		managementGroup := userGroup.Group("/management")
+		managementGroup.Use(middlewares.RequireRoles("admin"))
+		{
+			userGroup.GET("/", h.GetAllUsers)
+			userGroup.PATCH("/:id", h.UpdateUser)
+		}
+	}
+	
 }
 
 // CreateUser maneja la petición POST para crear un usuario.
@@ -49,7 +57,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 
 // GetUser maneja la petición GET para obtener un usuario por ID.
 func (h *UserHandler) GetUser(c *gin.Context) {
-	id := c.Param("id")
+	idUser := c.GetString("userID")
 
 	user, err := h.userService.GetByID(id)
 	if err != nil {
