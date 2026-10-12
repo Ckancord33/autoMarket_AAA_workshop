@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"automarket/internal/middleware"
 	"net/http"
+	"strconv"
 
 	"automarket/internal/services"
 
@@ -23,14 +25,23 @@ func NewUserHandler(us services.UserService) *UserHandler {
 // RegisterRoutes ahora incluye las nuevas rutas del CRUD
 func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
 	userGroup := router.Group("/users")
-	if authMiddleware != nil {
-		userGroup.Use(authMiddleware)
-	}
-
 	userGroup.POST("/", h.CreateUser)
-	userGroup.GET("/:id", h.GetUser)
-	userGroup.GET("/", h.GetAllUsers)
-	userGroup.PATCH("/:id", h.UpdateUser)
+
+	protected := userGroup.Group("/")
+	if authMiddleware != nil {
+		protected.Use(authMiddleware)
+	} else {
+		protected.Use(middleware.RequireAuth())
+	}
+	{
+		protected.GET("/:id", h.GetUser)
+		managementGroup := protected.Group("/management")
+		managementGroup.Use(middleware.RequireRoles("admin"))
+		{
+			managementGroup.GET("/", h.GetAllUsers)
+			managementGroup.PATCH("/:id", h.UpdateUser)
+		}
+	}
 }
 
 // CreateUser maneja la petición POST para crear un usuario.
@@ -48,12 +59,26 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, user)
+	// Autologin: Generar token JWT tras la creación del usuario
+	token, err := middleware.GenerateJWT(strconv.Itoa(user.IDUser), user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Usuario creado pero no se pudo generar el token"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Usuario creado exitosamente",
+		"token":   token,
+		"user":    user,
+	})
 }
 
 // GetUser maneja la petición GET para obtener un usuario por ID.
 func (h *UserHandler) GetUser(c *gin.Context) {
 	id := c.Param("id")
+	if id == "" {
+		id = c.GetString("userID")
+	}
 
 	user, err := h.userService.GetByID(id)
 	if err != nil {

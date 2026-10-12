@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"automarket/internal/middleware"
 	"net/http"
 
 	"automarket/internal/services"
@@ -20,14 +21,19 @@ func NewPublicationHandler(ps services.PublicationService) *PublicationHandler {
 
 func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
 	pubGroup := router.Group("/publications")
-	if authMiddleware != nil {
-		pubGroup.Use(authMiddleware)
-	}
-
-	pubGroup.POST("/", h.CreatePublication)
-	pubGroup.GET("/:id", h.GetPublication)
 	pubGroup.GET("/", h.GetAllPublication)
-	pubGroup.PATCH("/:id", h.UpdatePublication)
+	pubGroup.GET("/:id", h.GetPublication)
+
+	protected := pubGroup.Group("/")
+	if authMiddleware != nil {
+		protected.Use(authMiddleware)
+	} else {
+		protected.Use(middleware.RequireAuth())
+	}
+	{
+		protected.POST("/", h.CreatePublication)
+		protected.PATCH("/:id", h.UpdatePublication)
+	}
 }
 
 func (h *PublicationHandler) CreatePublication(c *gin.Context) {
