@@ -1,54 +1,39 @@
 package main
 
 import (
-	"html/template"
 	"log"
 	"net/http"
-	"path/filepath"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// Rutas relativas a los directorios de templates y archivos estáticos
-	// (Se asume que el comando se ejecuta desde la raíz del proyecto autoMarket_AAA_workshop)
-	templatesDir := filepath.Join("web", "templates")
-	staticDir := filepath.Join("web", "static")
+	// Inicializar router de Gin (incluye logger y recovery middleware nativo)
+	router := gin.Default()
 
-	// Parsear los templates .html dentro del directorio de templates
-	tmpl := template.Must(template.ParseGlob(filepath.Join(templatesDir, "*.html")))
-
-	// Habilitar el servidor de archivos estáticos para CSS, JS e imágenes
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
+	// Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
+	router.LoadHTMLGlob("web/templates/*.html")
+	router.Static("/static", "./web/static")
 
 	// Ruta para el Login (/login)
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
-			// Simulamos un login exitoso redirigiendo a la pantalla principal
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
-		err := tmpl.ExecuteTemplate(w, "login.html", nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+	router.GET("/login", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "login.html", nil)
+	})
+
+	router.POST("/login", func(c *gin.Context) {
+		// Simulación de login exitoso redirigiendo al catálogo principal
+		c.Redirect(http.StatusSeeOther, "/")
 	})
 
 	// Ruta principal para el Marketplace / Catálogo (/)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		err := tmpl.ExecuteTemplate(w, "index.html", nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", nil)
 	})
 
-	// Iniciar el servidor
+	// Iniciar el servidor en el puerto 8080
 	port := ":8080"
 	log.Printf("💻 Servidor AutoMarket iniciando en http://localhost%s\n", port)
-	err := http.ListenAndServe(port, nil)
-	if err != nil {
+	if err := router.Run(port); err != nil {
 		log.Fatalf("Error iniciando servidor: %v", err)
 	}
 }
