@@ -32,11 +32,6 @@ func main() {
 		c.HTML(http.StatusOK, "login.html", nil)
 	})
 
-	router.POST("/login", func(c *gin.Context) {
-		// Simulación de login exitoso redirigiendo al catálogo principal
-		c.Redirect(http.StatusSeeOther, "/")
-	})
-
 	// Ruta principal para el Marketplace / Catálogo (/)
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", nil)

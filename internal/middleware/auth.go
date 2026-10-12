@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"automarket/pkg/security"
 	"net/http"
 	"strings"
 
@@ -21,7 +22,7 @@ func RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		payload, err := VerifyJWT(parts[1])
+		payload, err := security.VerifyJWT(parts[1])
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return

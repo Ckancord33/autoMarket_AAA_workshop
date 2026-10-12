@@ -12,11 +12,23 @@ import (
 
 // DTOs que espera el Handler
 type CreateUserRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name" binding:"required"`
-	Phone    string `json:"phone"`
-	City     string `json:"city"`
+	Email    string `json:"email" form:"email" binding:"required,email"`
+	Password string `json:"password" form:"password" binding:"required,min=6"`
+	Name     string `json:"name" form:"name" binding:"required"`
+	Phone    string `json:"phone" form:"phone"`
+	City     string `json:"city" form:"city"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email" form:"email"`
+	Username string `json:"username" form:"username"`
+	Password string `json:"password" form:"password" binding:"required"`
+}
+
+type AuthResponse struct {
+	Message string       `json:"message"`
+	Token   string       `json:"token"`
+	User    *models.User `json:"user"`
 }
 
 type UpdateUserRequest struct {
@@ -34,6 +46,8 @@ type UserFilterRequest struct {
 // UserService define el contrato de métodos que los Handlers necesitan invocar
 type UserService interface {
 	Create(req CreateUserRequest) (*models.User, error)
+	Register(req CreateUserRequest) (*AuthResponse, error)
+	Login(req LoginRequest) (*AuthResponse, error)
 	GetByID(id string) (*models.User, error)
 	GetAll(filters UserFilterRequest) ([]models.User, error)
 	Update(id string, req UpdateUserRequest) (*models.User, error)
@@ -96,6 +110,68 @@ func (s *userService) Create(req CreateUserRequest) (*models.User, error) {
 	sanitized := *created
 	sanitized.Password = ""
 	return &sanitized, nil
+}
+
+// Register crea un usuario y genera su token JWT de sesión inmediatamente (Autologin)
+func (s *userService) Register(req CreateUserRequest) (*AuthResponse, error) {
+	user, err := s.Create(req)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := security.GenerateJWT(strconv.Itoa(user.IDUser), user.Role)
+	if err != nil {
+		return nil, errors.New("usuario creado pero falló la generación del token de sesión")
+	}
+
+	return &AuthResponse{
+		Message: "Usuario creado exitosamente",
+		Token:   token,
+		User:    user,
+	}, nil
+}
+
+// Login valida credenciales mediante hash+salt y emite un token JWT de sesión
+func (s *userService) Login(req LoginRequest) (*AuthResponse, error) {
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	if email == "" && req.Username != "" {
+		email = strings.TrimSpace(strings.ToLower(req.Username))
+	}
+
+	if email == "" {
+		return nil, errors.New("el correo electrónico o usuario es requerido")
+	}
+
+	if strings.TrimSpace(req.Password) == "" {
+		return nil, errors.New("la contraseña es requerida")
+	}
+
+	user, err := s.repo.GetByEmail(email)
+	if err != nil {
+		return nil, errors.New("credenciales incorrectas")
+	}
+
+	if !user.IsActive {
+		return nil, errors.New("la cuenta de usuario se encuentra inactiva")
+	}
+
+	if !security.CheckPassword(req.Password, user.Password) {
+		return nil, errors.New("credenciales incorrectas")
+	}
+
+	token, err := security.GenerateJWT(strconv.Itoa(user.IDUser), user.Role)
+	if err != nil {
+		return nil, errors.New("error al generar el token de sesión")
+	}
+
+	sanitized := *user
+	sanitized.Password = ""
+
+	return &AuthResponse{
+		Message: "Inicio de sesión exitoso",
+		Token:   token,
+		User:    &sanitized,
+	}, nil
 }
 
 // GetByID convierte el id de string a entero y busca en el repositorio O(1)
