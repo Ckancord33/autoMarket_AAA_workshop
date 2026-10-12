@@ -17,17 +17,24 @@ func NewPublicationHandler(ps PublicationService) *PublicationHandler {
 }
 
 func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
-	pubGroup := router.Group("/publications")
-	pubGroup.Use(authMiddleware)
+	
+	router.GET("/", h.GetAllPublication)
 
-	pubGroup.POST("/", h.CreatePublication)
-	pubGroup.GET("/:id", h.GetPublication)
-	pubGroup.GET("/", h.GetAllPublication)
-	pubGroup.PATCH("/:id", h.UpdatePublication)
+	protected := router.Group("/")
+
+	protected.Use(middlewares.RequireAuth()) 
+	{
+		protected.POST("/", h.CreatePublication)
+		protected.GET("/:id", h.GetMyPublication)
+		protected.PATCH("/:id", h.UpdatePublication)
+	}
+	
 }
 
 func (h *PublicationHandler) CreatePublication(c *gin.Context) {
 	var req CreatePublicationRequest
+	userID := c.GetString("userID")
+	req.OwnerID = userID
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -43,10 +50,10 @@ func (h *PublicationHandler) CreatePublication(c *gin.Context) {
 	c.JSON(http.StatusCreated, publication)
 }
 
-func (h *PublicationHandler) GetPublication(c *gin.Context) {
-	id := c.Param("id")
+func (h *PublicationHandler) GetMyPublication(c *gin.Context) {
+	userID := c.GetString("userID")
 
-	publication, err := h.publicationService.GetByID(id)
+	publication, err := h.publicationService.GetByOwner(userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Publicación no encontrada"})
 		return
@@ -77,6 +84,10 @@ func (h *PublicationHandler) UpdatePublication(c *gin.Context) {
 	id := c.Param("id")
 
 	var req UpdatePublicationRequest
+	userID := c.GetString("userID")
+	role := c.GetString("userRole")
+	req.OwnerID = userID
+	req.Role = role
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos de actualización inválidos: " + err.Error()})
