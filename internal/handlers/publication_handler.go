@@ -3,14 +3,16 @@ package handlers
 import (
 	"net/http"
 
+	"automarket/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
 type PublicationHandler struct {
-	publicationService PublicationService
+	publicationService services.PublicationService
 }
 
-func NewPublicationHandler(ps PublicationService) *PublicationHandler {
+func NewPublicationHandler(ps services.PublicationService) *PublicationHandler {
 	return &PublicationHandler{
 		publicationService: ps,
 	}
@@ -18,7 +20,9 @@ func NewPublicationHandler(ps PublicationService) *PublicationHandler {
 
 func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
 	pubGroup := router.Group("/publications")
-	pubGroup.Use(authMiddleware)
+	if authMiddleware != nil {
+		pubGroup.Use(authMiddleware)
+	}
 
 	pubGroup.POST("/", h.CreatePublication)
 	pubGroup.GET("/:id", h.GetPublication)
@@ -27,7 +31,7 @@ func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware g
 }
 
 func (h *PublicationHandler) CreatePublication(c *gin.Context) {
-	var req CreatePublicationRequest
+	var req services.CreatePublicationRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -56,27 +60,26 @@ func (h *PublicationHandler) GetPublication(c *gin.Context) {
 }
 
 func (h *PublicationHandler) GetAllPublication(c *gin.Context) {
-
-	var filters PublicationFilterRequest
+	var filters services.PublicationFilterRequest
 
 	if err := c.ShouldBindQuery(&filters); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Filtros inválidos"})
 		return
 	}
 
-	users, err := h.publicationService.GetAll(filters)
+	publications, err := h.publicationService.GetAll(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al listar los usuarios"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al listar las publicaciones"})
 		return
 	}
 
-	c.JSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, publications)
 }
 
 func (h *PublicationHandler) UpdatePublication(c *gin.Context) {
 	id := c.Param("id")
 
-	var req UpdatePublicationRequest
+	var req services.UpdatePublicationRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos de actualización inválidos: " + err.Error()})

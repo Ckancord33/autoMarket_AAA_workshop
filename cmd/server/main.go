@@ -4,18 +4,30 @@ import (
 	"log"
 	"net/http"
 
+	"automarket/internal/handlers"
+	"automarket/internal/repositories"
+	"automarket/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// Inicializar router de Gin (incluye logger y recovery middleware nativo)
+	// 1. Inicializar capas del módulo Usuario (Persistencia JSON en data/user.json)
+	userRepo := repositories.NewUserRepository("data/user.json")
+	userService := services.NewUserService(userRepo)
+	userHandler := handlers.NewUserHandler(userService)
+
+	// 2. Inicializar router de Gin (incluye logger y recovery middleware nativo)
 	router := gin.Default()
 
-	// Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
+	// 3. Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
 	router.LoadHTMLGlob("web/templates/*.html")
 	router.Static("/static", "./web/static")
 
-	// Ruta para el Login (/login)
+	// 4. Registrar endpoints de Usuarios (/users)
+	userHandler.RegisterRoutes(router, nil)
+
+	// 5. Rutas para vistas del Frontend (SSR)
 	router.GET("/login", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "login.html", nil)
 	})
@@ -30,7 +42,7 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
 
-	// Iniciar el servidor en el puerto 8080
+	// 6. Iniciar el servidor en el puerto 8080
 	port := ":8080"
 	log.Printf("💻 Servidor AutoMarket iniciando en http://localhost%s\n", port)
 	if err := router.Run(port); err != nil {
