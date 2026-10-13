@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"automarket/internal/handlers"
+	"automarket/internal/middleware"
 	"automarket/internal/repositories"
 	"automarket/internal/services"
 
@@ -12,13 +13,18 @@ import (
 )
 
 func main() {
-	// 1. Inicializar capas del módulo Usuario (Persistencia JSON en data/user.json)
+	// 1. Inicializar repositorio de Auditoría AAA (data/audit_log.json)
+	auditRepo := repositories.NewAuditRepository("data/audit_log.json")
+
+	// 2. Inicializar capas del módulo Usuario (Persistencia JSON en data/user.json)
 	userRepo := repositories.NewUserRepository("data/user.json")
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
-	// 2. Inicializar router de Gin (incluye logger y recovery middleware nativo)
-	router := gin.Default()
+	// 3. Inicializar router de Gin sin el logger genérico (usando gin.New)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(middleware.AuditMiddleware(auditRepo))
 
 	// 3. Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
 	router.LoadHTMLGlob("web/templates/*.html")

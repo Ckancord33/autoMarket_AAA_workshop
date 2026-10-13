@@ -26,9 +26,8 @@ type LoginRequest struct {
 }
 
 type AuthResponse struct {
-	Message string       `json:"message"`
-	Token   string       `json:"token"`
-	User    *models.User `json:"user"`
+	Token string       `json:"token"`
+	User  *models.User `json:"user"`
 }
 
 type UpdateUserRequest struct {
@@ -125,9 +124,8 @@ func (s *userService) Register(req CreateUserRequest) (*AuthResponse, error) {
 	}
 
 	return &AuthResponse{
-		Message: "Usuario creado exitosamente",
-		Token:   token,
-		User:    user,
+		Token: token,
+		User:  user,
 	}, nil
 }
 
@@ -168,9 +166,8 @@ func (s *userService) Login(req LoginRequest) (*AuthResponse, error) {
 	sanitized.Password = ""
 
 	return &AuthResponse{
-		Message: "Inicio de sesión exitoso",
-		Token:   token,
-		User:    &sanitized,
+		Token: token,
+		User:  &sanitized,
 	}, nil
 }
 

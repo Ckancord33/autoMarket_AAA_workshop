@@ -23,13 +23,17 @@ func NewUserHandler(us services.UserService) *UserHandler {
 
 // RegisterRoutes registra las rutas de autenticación y CRUD de usuarios
 func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
-	// Endpoint público para iniciar sesión
+	// --- Rutas Públicas (Sin autenticación) ---
+	// Permitidas para cualquier usuario sin necesidad de token de sesión.
 	router.POST("/login", h.Login)
 
 	userGroup := router.Group("/users")
 	userGroup.POST("/", h.CreateUser)
 	userGroup.POST("/login", h.Login)
 
+	// --- Grupo de Rutas Protegidas ---
+	// Si se recibe un middleware externo (ej. para pruebas o mocks), se utiliza ese;
+	// de lo contrario, se aplica el middleware real del sistema (middleware.RequireAuth()).
 	protected := userGroup.Group("/")
 	if authMiddleware != nil {
 		protected.Use(authMiddleware)
@@ -37,7 +41,10 @@ func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.Hand
 		protected.Use(middleware.RequireAuth())
 	}
 	{
+		// Nivel 1 de Seguridad: Requiere Token JWT válido (cualquier rol autenticado)
 		protected.GET("/:id", h.GetUser)
+
+		// Nivel 2 de Seguridad: Requiere Token JWT válido + Rol "admin" (Control de acceso RBAC)
 		managementGroup := protected.Group("/management")
 		managementGroup.Use(middleware.RequireRoles("admin"))
 		{
