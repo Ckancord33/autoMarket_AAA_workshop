@@ -2,6 +2,11 @@ package models
 
 import "time"
 
+const (
+	RoleAdmin  = "admin"
+	RoleSeller = "seller"
+)
+
 // User representa la entidad USER en la base de datos.
 type User struct {
 	IDUser    int       `json:"idUser"`

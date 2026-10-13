@@ -9,7 +9,7 @@ AutoMarket es una plataforma web para la comercialización de vehículos usados 
 El núcleo del taller consiste en diseñar e integrar un ecosistema de seguridad autónomo y desacoplado de suites de terceros (como librerías externas de JWT u OAuth):
 
 * **Authentication (Autenticación):** Emisión y validación de tokens de sesión firmados criptográficamente mediante hashes simétricos **HMAC-SHA256**. El mecanismo codifica el payload en base64 URL-safe, verifica la integridad y valida la expiración temporal de forma determinista.
-* **Authorization (Autorización - RBAC):** Control de acceso basado en roles (**Admin**, **Vendedor**) ejecutado mediante middlewares interceptores en Gin. Cada solicitud es evaluada contra los permisos requeridos por la ruta antes de despachar el controlador.
+* **Authorization (Autorización - RBAC):** Control de acceso basado en roles (**Admin**, **Seller**) ejecutado mediante middlewares interceptores en Gin. Cada solicitud es evaluada contra los permisos requeridos por la ruta antes de despachar el controlador.
 * **Auditing (Auditoría):** Captura y persistencia de trazas operativas no bloqueantes (`sync.RWMutex` / estructuras en memoria y logs estándar). Se audita quién ejecuta la acción, el recurso accedido, el método HTTP, la dirección IP de origen, el código de estado retornado y la latencia de respuesta.
 
 ---
@@ -78,7 +78,7 @@ erDiagram
 
 ### Descripción de Entidades
 
-* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`), estado activo (`isActive`) y rol asignado (`role`: Admin, Vendedor) para el control de acceso basado en roles (RBAC).
+* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`), estado activo (`isActive`) y rol asignado (`role`: Admin, Seller) para el control de acceso basado en roles (RBAC).
 * **`PUBLICATION`**: Modelo consolidado con clave primaria `idPublication` que unifica las propiedades físicas del vehículo (`brand`, `model`, `year`, `color`, `condition`, `mileage`), la imagen asociada (`imageUrl`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`), vinculado al vendedor (`idUser`).
 * **`AUDIT_LOG`**: Registro inmutable de trazabilidad y eventos de seguridad del modelo AAA. Captura al usuario ejecutor (`idUser` nullable para eventos anónimos o no autenticados), rol (`role`), acción ejecutada (`action`, `method`, `endpoint`), dirección IP (`ipAddress`), telemetría de respuesta (`statusCode`, `latencyMs`), metadatos contextuales (`details`) y marca de tiempo (`timestamp`).
 
@@ -102,7 +102,7 @@ marketplace/
 │   ├── .gitkeep                 
 ├── internal/
 │   ├── models/                  # Entidades de dominio y definiciones de structs
-│   │   ├── user.go              # Entidad User y roles (Admin, Vendedor)
+│   │   ├── user.go              # Entidad User y roles (Admin, Seller)
 │   │   ├── publication.go       # Entidad Publication y especificaciones del vehículo
 │   │   └── audit_log.go         # Entidad AuditLog para trazabilidad AAA
 │   │

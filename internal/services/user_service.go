@@ -80,9 +80,9 @@ func (s *userService) Create(req CreateUserRequest) (*models.User, error) {
 	}
 
 	// Por seguridad (prevención de escalada de privilegios), todo usuario creado
-	// mediante petición HTTP se registra obligatoriamente con el rol "Vendedor".
-	// El rol "Admin" se provisiona directamente en el archivo de datos/proceso interno.
-	role := "Vendedor"
+	// mediante petición HTTP se registra obligatoriamente con el rol "seller".
+	// El rol "admin" se provisiona directamente en el archivo de datos/proceso interno.
+	role := models.RoleSeller
 
 	// Hashear la contraseña con salt criptográfico antes de persistir
 	hashedPassword, err := security.HashPassword(req.Password)
