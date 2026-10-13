@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"automarket/internal/middleware"
-	"net/http"
-
 	"automarket/internal/services"
+	"automarket/pkg/response"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,17 +40,17 @@ func (h *PublicationHandler) CreatePublication(c *gin.Context) {
 	var req services.CreatePublicationRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Datos de publicación inválidos", err)
 		return
 	}
 
 	publication, err := h.publicationService.Create(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error interno del servidor"})
+		response.Error(c, http.StatusInternalServerError, "Error interno del servidor", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, publication)
+	response.Success(c, http.StatusCreated, "Publicación creada exitosamente", publication)
 }
 
 func (h *PublicationHandler) GetPublication(c *gin.Context) {
@@ -58,28 +58,28 @@ func (h *PublicationHandler) GetPublication(c *gin.Context) {
 
 	publication, err := h.publicationService.GetByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Publicación no encontrada"})
+		response.Error(c, http.StatusNotFound, "Publicación no encontrada", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, publication)
+	response.Success(c, http.StatusOK, "Publicación obtenida exitosamente", publication)
 }
 
 func (h *PublicationHandler) GetAllPublication(c *gin.Context) {
 	var filters services.PublicationFilterRequest
 
 	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Filtros inválidos"})
+		response.Error(c, http.StatusBadRequest, "Filtros inválidos", err)
 		return
 	}
 
 	publications, err := h.publicationService.GetAll(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al listar las publicaciones"})
+		response.Error(c, http.StatusInternalServerError, "Error al listar las publicaciones", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, publications)
+	response.Success(c, http.StatusOK, "Publicaciones obtenidas exitosamente", publications)
 }
 
 func (h *PublicationHandler) UpdatePublication(c *gin.Context) {
@@ -88,15 +88,15 @@ func (h *PublicationHandler) UpdatePublication(c *gin.Context) {
 	var req services.UpdatePublicationRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos de actualización inválidos: " + err.Error()})
+		response.Error(c, http.StatusBadRequest, "Datos de actualización inválidos", err)
 		return
 	}
 
 	updatedPublication, err := h.publicationService.Update(id, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo actualizar la publicación"})
+		response.Error(c, http.StatusInternalServerError, "No se pudo actualizar la publicación", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedPublication)
+	response.Success(c, http.StatusOK, "Publicación actualizada exitosamente", updatedPublication)
 }

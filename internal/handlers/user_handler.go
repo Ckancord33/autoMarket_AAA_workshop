@@ -3,6 +3,7 @@ package handlers
 import (
 	"automarket/internal/middleware"
 	"automarket/internal/services"
+	"automarket/pkg/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -51,17 +52,17 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req services.CreateUserRequest
 
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Datos de registro inválidos", err)
 		return
 	}
 
 	authResp, err := h.userService.Register(req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Error al registrar usuario", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, authResp)
+	response.Success(c, http.StatusCreated, "Usuario registrado exitosamente", authResp)
 }
 
 // Login maneja la petición POST para autenticar un usuario y devolver el token JWT
@@ -69,17 +70,17 @@ func (h *UserHandler) Login(c *gin.Context) {
 	var req services.LoginRequest
 
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato inválido: " + err.Error()})
+		response.Error(c, http.StatusBadRequest, "Formato de credenciales inválido", err)
 		return
 	}
 
 	authResp, err := h.userService.Login(req)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusUnauthorized, "Credenciales inválidas", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, authResp)
+	response.Success(c, http.StatusOK, "Inicio de sesión exitoso", authResp)
 }
 
 // GetUser maneja la petición GET para obtener un usuario por ID.
@@ -91,11 +92,11 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 
 	user, err := h.userService.GetByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Usuario no encontrado"})
+		response.Error(c, http.StatusNotFound, "Usuario no encontrado", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	response.Success(c, http.StatusOK, "Usuario obtenido exitosamente", user)
 }
 
 // GetAllUsers maneja la petición GET para obtener todos los usuarios (Get global).
@@ -103,17 +104,17 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 	var filters services.UserFilterRequest
 
 	if err := c.ShouldBindQuery(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Filtros inválidos"})
+		response.Error(c, http.StatusBadRequest, "Filtros inválidos", err)
 		return
 	}
 
 	users, err := h.userService.GetAll(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al listar los usuarios"})
+		response.Error(c, http.StatusInternalServerError, "Error al listar los usuarios", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, users)
+	response.Success(c, http.StatusOK, "Usuarios obtenidos exitosamente", users)
 }
 
 // UpdateUser maneja la petición PATCH para actualizar un usuario existente.
@@ -123,15 +124,15 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	var req services.UpdateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos de actualización inválidos: " + err.Error()})
+		response.Error(c, http.StatusBadRequest, "Datos de actualización inválidos", err)
 		return
 	}
 
 	updatedUser, err := h.userService.Update(id, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo actualizar el usuario: " + err.Error()})
+		response.Error(c, http.StatusInternalServerError, "No se pudo actualizar el usuario", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedUser)
+	response.Success(c, http.StatusOK, "Usuario actualizado exitosamente", updatedUser)
 }
