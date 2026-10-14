@@ -50,6 +50,7 @@ type UserService interface {
 	GetByID(id string) (*models.User, error)
 	GetAll(filters UserFilterRequest) ([]models.User, error)
 	Update(id string, req UpdateUserRequest) (*models.User, error)
+	Delete(id string) error
 }
 
 // userService es la implementación concreta de UserService
@@ -255,4 +256,13 @@ func (s *userService) Update(idStr string, req UpdateUserRequest) (*models.User,
 	sanitized := *updated
 	sanitized.Password = ""
 	return &sanitized, nil
+}
+
+// Delete valida el identificador y elimina un usuario a través del repositorio
+func (s *userService) Delete(idStr string) error {
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		return errors.New("el ID del usuario debe ser un número entero positivo")
+	}
+	return s.repo.Delete(id)
 }

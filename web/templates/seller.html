@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoMarket - Panel del Vendedor</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+
+    <!-- Header & Navigation -->
+    <header class="navbar">
+        <a href="/" class="nav-brand">
+            Auto<span>Market</span>
+        </a>
+        <nav>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Catálogo</a></li>
+                <li><a href="/seller" class="nav-link active">Panel Vendedor</a></li>
+                <li class="nav-user">
+                    <div class="user-chip">
+                        <span>{{.User.Name}}</span>
+                        <span class="user-role-badge">Vendedor</span>
+                    </div>
+                    <a href="/logout" class="btn btn-secondary btn-sm">Salir</a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <!-- Dashboard Greeting -->
+        <div class="dashboard-header">
+            <div class="dashboard-title">
+                <h1>Panel de Vendedor</h1>
+                <p>Publicación y administración autónoma de vehículos.</p>
+            </div>
+            <div>
+                <a href="#form-publicar" class="btn btn-primary btn-sm">+ Nueva Publicación</a>
+            </div>
+        </div>
+
+        {{if .Success}}
+            <div class="alert alert-success">
+                {{.Success}}
+            </div>
+        {{end}}
+
+        {{if .Error}}
+            <div class="alert alert-error">
+                {{.Error}}
+            </div>
+        {{end}}
+
+        <!-- Form Panel: Publicar Vehículo (HU-VEN-01) -->
+        <section id="form-publicar" class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Publicar un Vehículo</h2>
+                <span class="status-pill status-pending">Requiere Aprobación</span>
+            </div>
+
+            <div class="alert alert-info">
+                Aviso: Toda nueva publicación se registrará en estado <strong>pendiente de aprobación</strong> hasta que un administrador la autorice para el catálogo público (HU-VEN-01).
+            </div>
+
+            <form action="/seller/publications" method="POST">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="brand">Marca</label>
+                        <input type="text" id="brand" name="brand" placeholder="Ej. Porsche, BMW, Toyota..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="model">Modelo</label>
+                        <input type="text" id="model" name="model" placeholder="Ej. 911 Carrera, M4..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="year">Año</label>
+                        <input type="number" id="year" name="year" min="1990" max="2027" placeholder="2023" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mileage">Kilometraje (km)</label>
+                        <input type="number" id="mileage" name="mileage" min="0" placeholder="15000" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="price">Precio (USD)</label>
+                        <input type="number" id="price" name="price" min="1" step="any" placeholder="65000" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="color">Color</label>
+                        <input type="text" id="color" name="color" placeholder="Gris Plata, Azul..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="condition">Condición</label>
+                        <select id="condition" name="condition" required>
+                            <option value="Usado Certificado">Usado Certificado</option>
+                            <option value="Usado">Usado</option>
+                            <option value="Nuevo">Nuevo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="imageUrl">URL de la Imagen</label>
+                        <input type="url" id="imageUrl" name="imageUrl" placeholder="https://..." required>
+                        <span class="form-help">Enlace web directo a la fotografía del auto.</span>
+                    </div>
+
+                    <div class="form-group form-full">
+                        <label for="description">Descripción</label>
+                        <textarea id="description" name="description" rows="3" placeholder="Detalles mecánicos, equipamiento opcional, mantenimientos..." required></textarea>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.25rem; display: flex; justify-content: flex-end;">
+                    <button type="submit" class="btn btn-primary">Enviar a Moderación</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Table Panel: Mis Publicaciones y Reportar Venta (HU-VEN-01) -->
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Mis Vehículos</h2>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Gestión de ofertas y ventas</span>
+            </div>
+
+            {{if .Publications}}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Vehículo</th>
+                                <th>Año</th>
+                                <th>Kilometraje</th>
+                                <th>Precio</th>
+                                <th>Fecha</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Publications}}
+                                <tr>
+                                    <td>
+                                        <strong>{{.Brand}} {{.Model}}</strong>
+                                        <div style="font-size: 0.75rem; color: var(--text-dim);">#{{.IDPublication}} &bull; {{.Color}}</div>
+                                    </td>
+                                    <td>{{.Year}}</td>
+                                    <td>{{.Mileage}} km</td>
+                                    <td>${{.Price}}</td>
+                                    <td>{{.PublishedAt.Format "02/01/2006"}}</td>
+                                    <td>
+                                        {{if eq .Status "publicada"}}
+                                            <span class="status-pill status-published">Publicada</span>
+                                        {{else if eq .Status "vendida"}}
+                                            <span class="status-pill status-sold">Vendida</span>
+                                        {{else}}
+                                            <span class="status-pill status-pending">Pendiente</span>
+                                        {{end}}
+                                    </td>
+                                    <td>
+                                        {{if eq .Status "publicada"}}
+                                            <!-- Report Sale Form (HU-VEN-01) -->
+                                            <form action="/seller/publications/sell" method="POST" style="display: inline;">
+                                                <input type="hidden" name="idPublication" value="{{.IDPublication}}">
+                                                <button type="submit" class="btn btn-secondary btn-sm" title="Marcar como vendido">
+                                                    Reportar Venta
+                                                </button>
+                                            </form>
+                                        {{else if eq .Status "vendida"}}
+                                            <span style="font-size: 0.8rem; color: var(--text-dim);">Retirado de venta</span>
+                                        {{else}}
+                                            <span style="font-size: 0.8rem; color: var(--status-pending);">En revisión</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            {{else}}
+                <div class="empty-state">
+                    <h3>No has registrado vehículos aún</h3>
+                    <p>Utiliza el formulario superior para crear tu primera oferta.</p>
+                </div>
+            {{end}}
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>AutoMarket &bull; Sistema de Gestión y Catálogo de Vehículos.</p>
+    </footer>
+
+</body>
+</html>

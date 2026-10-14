@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"automarket/internal/handlers"
 	"automarket/internal/middleware"
@@ -26,22 +25,16 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(middleware.AuditMiddleware(auditRepo))
 
-	// 3. Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
+	// 4. Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
 	router.LoadHTMLGlob("web/templates/*.html")
 	router.Static("/static", "./web/static")
 
-	// 4. Registrar endpoints de Usuarios (/users)
+	// 5. Registrar endpoints de la API de Usuarios (/users)
 	userHandler.RegisterRoutes(router, nil)
 
-	// 5. Rutas para vistas del Frontend (SSR)
-	router.GET("/login", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "login.html", nil)
-	})
-
-	// Ruta principal para el Marketplace / Catálogo (/)
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
-	})
+	// 6. Registrar rutas para la interfaz Web SSR (100% Go y Gin, Cero JavaScript)
+	webHandler := handlers.NewWebHandler(userService)
+	webHandler.RegisterWebRoutes(router)
 
 	// 6. Iniciar el servidor en el puerto 8080
 	port := ":8080"

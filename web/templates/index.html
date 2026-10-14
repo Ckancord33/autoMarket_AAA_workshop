@@ -3,55 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AutoMarket - Explora nuestro inventario de vehículos de alta gama.">
     <title>AutoMarket - Catálogo de Vehículos</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
-<body class="marketplace-body">
-    <header class="navbar glass-header">
-        <div class="logo">AutoMarket</div>
+<body>
+
+    <!-- Header & Navigation -->
+    <header class="navbar">
+        <a href="/" class="nav-brand">
+            Auto<span>Market</span>
+        </a>
         <nav>
-            <ul>
-                <li><a href="/">Inicio</a></li>
-                <li><a href="/login" class="btn-secondary">Cerrar Sesión</a></li>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link active">Catálogo</a></li>
+                {{if .User}}
+                    {{if eq .User.Role "seller"}}
+                        <li><a href="/seller" class="nav-link">Panel Vendedor</a></li>
+                    {{else if eq .User.Role "admin"}}
+                        <li><a href="/admin" class="nav-link">Administración</a></li>
+                    {{end}}
+                    <li class="nav-user">
+                        <div class="user-chip">
+                            <span>{{.User.Name}}</span>
+                            <span class="user-role-badge {{if eq .User.Role "admin"}}admin{{end}}">{{.User.Role}}</span>
+                        </div>
+                        <a href="/logout" class="btn btn-secondary btn-sm">Salir</a>
+                    </li>
+                {{else}}
+                    <li><a href="/register" class="nav-link">Registrarse</a></li>
+                    <li><a href="/login" class="btn btn-primary btn-sm">Iniciar Sesión</a></li>
+                {{end}}
             </ul>
         </nav>
     </header>
-    <main class="marketplace-container">
-        <h1 class="page-title">Explora Nuestros Vehículos</h1>
-        <div class="vehicle-grid">
-            <!-- Vehículo 1 -->
-            <div class="vehicle-card glass-card">
-                <div class="vehicle-img placeholder-img">Ferrari F8 Tributo</div>
-                <div class="vehicle-info">
-                    <h2>Ferrari F8 Tributo</h2>
-                    <p class="price">$350,000</p>
-                    <p class="specs">2023 | 0 km | Automático</p>
-                    <button class="btn-primary">Comprar Ahora</button>
-                </div>
-            </div>
-            <!-- Vehículo 2 -->
-            <div class="vehicle-card glass-card">
-                <div class="vehicle-img placeholder-img">Porsche 911 GT3</div>
-                <div class="vehicle-info">
-                    <h2>Porsche 911 GT3</h2>
-                    <p class="price">$220,000</p>
-                    <p class="specs">2022 | 5,000 km | Manual</p>
-                    <button class="btn-primary">Comprar Ahora</button>
-                </div>
-            </div>
-            <!-- Vehículo 3 -->
-            <div class="vehicle-card glass-card">
-                <div class="vehicle-img placeholder-img">Tesla Model S Plaid</div>
-                <div class="vehicle-info">
-                    <h2>Tesla Model S Plaid</h2>
-                    <p class="price">$140,000</p>
-                    <p class="specs">2024 | 0 km | Eléctrico</p>
-                    <button class="btn-primary">Comprar Ahora</button>
-                </div>
-            </div>
+
+    <!-- Catalog Header (HU-VIS-01) -->
+    <section class="catalog-header">
+        <h1>Catálogo de Vehículos Usados</h1>
+        <p>Inventario público de vehículos autorizados con contacto directo al vendedor.</p>
+    </section>
+
+    <!-- Main Catalog Grid (HU-VIS-01) -->
+    <main class="catalog-container">
+        <div class="catalog-toolbar">
+            <span>Vehículos autorizados disponibles</span>
         </div>
+
+        {{if .Publications}}
+            <div class="vehicle-grid">
+                {{range .Publications}}
+                    <article class="vehicle-card">
+                        <div class="vehicle-image-wrapper">
+                            <span class="badge-tag">{{.Condition}}</span>
+                            <img src="{{if .ImageURL}}{{.ImageURL}}{{else}}/static/uploads/placeholder.svg{{end}}" 
+                                 alt="{{.Brand}} {{.Model}}" 
+                                 class="vehicle-image"
+                                 loading="lazy">
+                        </div>
+                        <div class="vehicle-body">
+                            <h2 class="vehicle-title">{{.Brand}} {{.Model}}</h2>
+                            <p class="vehicle-specs-line">{{.Year}} &bull; {{.Mileage}} km &bull; {{.Color}}</p>
+                            
+                            <div class="vehicle-meta-tags">
+                                <span class="meta-tag">{{.Condition}}</span>
+                                <span class="meta-tag">Año {{.Year}}</span>
+                            </div>
+
+                            <div class="vehicle-footer">
+                                <div class="price-value">
+                                    ${{.Price}} <small>USD</small>
+                                </div>
+                                <a href="/publications/{{.IDPublication}}" class="btn btn-secondary btn-sm">Ver Ficha</a>
+                            </div>
+                        </div>
+                    </article>
+                {{end}}
+            </div>
+        {{else}}
+            <div class="empty-state">
+                <h3>No hay vehículos disponibles</h3>
+                <p>No se encontraron resultados para los filtros aplicados o no hay publicaciones autorizadas.</p>
+                <div style="margin-top: 1rem;">
+                    <a href="/" class="btn btn-secondary btn-sm">Ver catálogo completo</a>
+                </div>
+            </div>
+        {{end}}
     </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>AutoMarket &bull; Sistema de Gestión y Catálogo de Vehículos.</p>
+    </footer>
+
 </body>
 </html>

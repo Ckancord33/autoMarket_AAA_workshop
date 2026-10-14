@@ -21,36 +21,23 @@ func NewUserHandler(us services.UserService) *UserHandler {
 	}
 }
 
-// RegisterRoutes registra las rutas de autenticación y CRUD de usuarios
+// RegisterRoutes registra las rutas de autenticación y moderación de usuarios
 func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
-	// --- Rutas Públicas (Sin autenticación) ---
-	// Permitidas para cualquier usuario sin necesidad de token de sesión.
-	router.POST("/login", h.Login)
-
+	// --- Rutas Públicas de la API de Usuarios (HU-VEN-01 y Autenticación) ---
 	userGroup := router.Group("/users")
 	userGroup.POST("/", h.CreateUser)
 	userGroup.POST("/login", h.Login)
 
-	// --- Grupo de Rutas Protegidas ---
-	// Si se recibe un middleware externo (ej. para pruebas o mocks), se utiliza ese;
-	// de lo contrario, se aplica el middleware real del sistema (middleware.RequireAuth()).
+	// --- Rutas Protegidas de Administración (HU-ADM-01: Eliminar usuarios) ---
 	protected := userGroup.Group("/")
 	if authMiddleware != nil {
 		protected.Use(authMiddleware)
 	} else {
 		protected.Use(middleware.RequireAuth())
 	}
+	protected.Use(middleware.RequireRoles("admin"))
 	{
-		// Nivel 1 de Seguridad: Requiere Token JWT válido (cualquier rol autenticado)
-		protected.GET("/:id", h.GetUser)
-
-		// Nivel 2 de Seguridad: Requiere Token JWT válido + Rol "admin" (Control de acceso RBAC)
-		managementGroup := protected.Group("/management")
-		managementGroup.Use(middleware.RequireRoles("admin"))
-		{
-			managementGroup.GET("/", h.GetAllUsers)
-			managementGroup.PATCH("/:id", h.UpdateUser)
-		}
+		protected.DELETE("/:id", h.DeleteUser)
 	}
 }
 
@@ -90,56 +77,14 @@ func (h *UserHandler) Login(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Inicio de sesión exitoso", authResp)
 }
 
-// GetUser maneja la petición GET para obtener un usuario por ID.
-func (h *UserHandler) GetUser(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		id = c.GetString("userID")
-	}
-
-	user, err := h.userService.GetByID(id)
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "Usuario no encontrado", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Usuario obtenido exitosamente", user)
-}
-
-// GetAllUsers maneja la petición GET para obtener todos los usuarios (Get global).
-func (h *UserHandler) GetAllUsers(c *gin.Context) {
-	var filters services.UserFilterRequest
-
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		response.Error(c, http.StatusBadRequest, "Filtros inválidos", err)
-		return
-	}
-
-	users, err := h.userService.GetAll(filters)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Error al listar los usuarios", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Usuarios obtenidos exitosamente", users)
-}
-
-// UpdateUser maneja la petición PATCH para actualizar un usuario existente.
-func (h *UserHandler) UpdateUser(c *gin.Context) {
+// DeleteUser maneja la petición DELETE para que un administrador elimine un usuario (HU-ADM-01).
+func (h *UserHandler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 
-	var req services.UpdateUserRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Datos de actualización inválidos", err)
+	if err := h.userService.Delete(id); err != nil {
+		response.Error(c, http.StatusNotFound, "Error al eliminar usuario", err)
 		return
 	}
 
-	updatedUser, err := h.userService.Update(id, req)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "No se pudo actualizar el usuario", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Usuario actualizado exitosamente", updatedUser)
+	response.Success(c, http.StatusOK, "Usuario eliminado exitosamente", nil)
 }

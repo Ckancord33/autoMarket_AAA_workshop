@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Publication.Brand}} {{.Publication.Model}} - AutoMarket</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+
+    <!-- Header & Navigation -->
+    <header class="navbar">
+        <a href="/" class="nav-brand">
+            Auto<span>Market</span>
+        </a>
+        <nav>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Catálogo</a></li>
+                {{if .User}}
+                    {{if eq .User.Role "seller"}}
+                        <li><a href="/seller" class="nav-link">Panel Vendedor</a></li>
+                    {{else if eq .User.Role "admin"}}
+                        <li><a href="/admin" class="nav-link">Administración</a></li>
+                    {{end}}
+                    <li class="nav-user">
+                        <div class="user-chip">
+                            <span>{{.User.Name}}</span>
+                            <span class="user-role-badge {{if eq .User.Role "admin"}}admin{{end}}">{{.User.Role}}</span>
+                        </div>
+                        <a href="/logout" class="btn btn-secondary btn-sm">Salir</a>
+                    </li>
+                {{else}}
+                    <li><a href="/register" class="nav-link">Registrarse</a></li>
+                    <li><a href="/login" class="btn btn-primary btn-sm">Iniciar Sesión</a></li>
+                {{end}}
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Detail Container (HU-VIS-01) -->
+    <main class="detail-container">
+        <a href="/" class="back-link">&larr; Volver al catálogo</a>
+
+        <div class="detail-layout">
+            <!-- Left Column: Media & Specifications -->
+            <div class="detail-main">
+                <div class="detail-image-box">
+                    <img src="{{if .Publication.ImageURL}}{{.Publication.ImageURL}}{{else}}/static/uploads/placeholder.svg{{end}}" 
+                         alt="{{.Publication.Brand}} {{.Publication.Model}}">
+                </div>
+
+                <div class="detail-info-card">
+                    <h1 class="detail-title">{{.Publication.Brand}} {{.Publication.Model}}</h1>
+                    <p class="detail-sub">Publicación #{{.Publication.IDPublication}} &bull; Fecha: {{.Publication.PublishedAt.Format "02/01/2006"}}</p>
+
+                    <div class="specs-grid">
+                        <div class="spec-cell">
+                            <span class="lbl">Marca</span>
+                            <span class="val">{{.Publication.Brand}}</span>
+                        </div>
+                        <div class="spec-cell">
+                            <span class="lbl">Modelo</span>
+                            <span class="val">{{.Publication.Model}}</span>
+                        </div>
+                        <div class="spec-cell">
+                            <span class="lbl">Año</span>
+                            <span class="val">{{.Publication.Year}}</span>
+                        </div>
+                        <div class="spec-cell">
+                            <span class="lbl">Kilometraje</span>
+                            <span class="val">{{.Publication.Mileage}} km</span>
+                        </div>
+                        <div class="spec-cell">
+                            <span class="lbl">Color</span>
+                            <span class="val">{{.Publication.Color}}</span>
+                        </div>
+                        <div class="spec-cell">
+                            <span class="lbl">Condición</span>
+                            <span class="val">{{.Publication.Condition}}</span>
+                        </div>
+                    </div>
+
+                    <div class="description-box">
+                        <h3>Detalles y equipamiento</h3>
+                        <p>{{.Publication.Description}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Price & Seller Contact Card (HU-VIS-01 Acceptance Criteria) -->
+            <aside class="detail-sidebar">
+                <div class="pricing-card">
+                    <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Precio de venta</div>
+                    <div class="price-tag">${{.Publication.Price}} <small style="font-size: 0.9rem; font-family: 'Inter', sans-serif; color: var(--text-dim); font-weight: 500;">USD</small></div>
+                    <span class="status-pill status-published">{{.Publication.Status}}</span>
+                </div>
+
+                <!-- Seller Contact Card -->
+                <div class="seller-card">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-dim); letter-spacing: 0.05em; margin-bottom: 0.75rem;">
+                        Datos del Vendedor
+                    </div>
+                    
+                    <div class="seller-header">
+                        <div class="seller-avatar">
+                            {{printf "%.1s" .Seller.Name}}
+                        </div>
+                        <div>
+                            <div class="seller-name">{{.Seller.Name}}</div>
+                            <div class="seller-city">{{if .Seller.City}}{{.Seller.City}}{{else}}Ubicación registrada{{end}}</div>
+                        </div>
+                    </div>
+
+                    <p style="font-size: 0.825rem; color: var(--text-muted); line-height: 1.5;">
+                        Ponte en contacto directo con el vendedor para agendar cita o acordar la compra:
+                    </p>
+
+                    <div class="seller-actions">
+                        {{if .Seller.Phone}}
+                            <a href="tel:{{.Seller.Phone}}" class="contact-btn btn-phone">
+                                Llamar: {{.Seller.Phone}}
+                            </a>
+                        {{end}}
+                        {{if .Seller.Email}}
+                            <a href="mailto:{{.Seller.Email}}?subject=Consulta sobre {{.Publication.Brand}} {{.Publication.Model}}" class="contact-btn btn-email">
+                                Enviar mensaje por correo
+                            </a>
+                        {{end}}
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>AutoMarket &bull; Sistema de Gestión y Catálogo de Vehículos.</p>
+    </footer>
+
+</body>
+</html>

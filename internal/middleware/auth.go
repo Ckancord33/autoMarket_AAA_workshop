@@ -12,22 +12,40 @@ import (
 
 func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		tokenString := ""
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			response.Error(c, http.StatusUnauthorized, "No autorizado", "Encabezado de autorización ausente")
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
+		}
+
+		// Si no viene en el header, intentar extraer de la Cookie HTTP (modo SSR sin JS)
+		if tokenString == "" {
+			if cookieToken, err := c.Cookie("token"); err == nil && cookieToken != "" {
+				tokenString = cookieToken
+			}
+		}
+
+		if tokenString == "" {
+			if strings.Contains(c.GetHeader("Accept"), "text/html") {
+				c.Redirect(http.StatusSeeOther, "/login")
+				c.Abort()
+				return
+			}
+			response.Error(c, http.StatusUnauthorized, "No autorizado", "Encabezado de autorización o sesión ausente")
 			c.Abort()
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			response.Error(c, http.StatusUnauthorized, "Formato de token inválido", "El encabezado debe tener el formato: Bearer <token>")
-			c.Abort()
-			return
-		}
-
-		payload, err := security.VerifyJWT(parts[1])
+		payload, err := security.VerifyJWT(tokenString)
 		if err != nil {
+			if strings.Contains(c.GetHeader("Accept"), "text/html") {
+				c.Redirect(http.StatusSeeOther, "/login")
+				c.Abort()
+				return
+			}
 			response.Error(c, http.StatusUnauthorized, "Token inválido o expirado", err.Error())
 			c.Abort()
 			return
@@ -39,6 +57,21 @@ func RequireAuth() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// GetUserSession intenta extraer de forma opcional la identidad del usuario desde la cookie
+func GetUserSession(c *gin.Context) (userID string, role string, ok bool) {
+	tokenString, err := c.Cookie("token")
+	if err != nil || tokenString == "" {
+		return "", "", false
+	}
+
+	payload, err := security.VerifyJWT(tokenString)
+	if err != nil {
+		return "", "", false
+	}
+
+	return payload.UserID, payload.Role, true
 }
 
 func RequireRoles(allowedRoles ...string) gin.HandlerFunc {

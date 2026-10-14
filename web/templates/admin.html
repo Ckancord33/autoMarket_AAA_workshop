@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoMarket - Panel de Administración</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+
+    <!-- Header & Navigation -->
+    <header class="navbar">
+        <a href="/" class="nav-brand">
+            Auto<span>Market</span>
+        </a>
+        <nav>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Catálogo</a></li>
+                <li><a href="/admin" class="nav-link active">Administración</a></li>
+                <li class="nav-user">
+                    <div class="user-chip">
+                        <span>{{.User.Name}}</span>
+                        <span class="user-role-badge admin">Admin</span>
+                    </div>
+                    <a href="/logout" class="btn btn-secondary btn-sm">Salir</a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        <!-- Dashboard Greeting -->
+        <div class="dashboard-header">
+            <div class="dashboard-title">
+                <h1>Panel de Moderación y Control</h1>
+                <p>Autorización de ofertas públicas y administración de cuentas (HU-ADM-01).</p>
+            </div>
+            <div>
+                <span class="status-pill status-published">Sesión Admin Activa</span>
+            </div>
+        </div>
+
+        {{if .Success}}
+            <div class="alert alert-success">
+                {{.Success}}
+            </div>
+        {{end}}
+
+        {{if .Error}}
+            <div class="alert alert-error">
+                {{.Error}}
+            </div>
+        {{end}}
+
+        <!-- Section 1: Bandeja de Moderación (HU-ADM-01) -->
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Publicaciones Pendientes de Aprobación</h2>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        Al autorizar, el estado cambia a "publicada" y se hace visible en el catálogo público.
+                    </p>
+                </div>
+            </div>
+
+            {{if .PendingPublications}}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Vehículo</th>
+                                <th>Vendedor</th>
+                                <th>Precio (USD)</th>
+                                <th>Año / Km</th>
+                                <th>Fecha Solicitud</th>
+                                <th style="text-align: right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .PendingPublications}}
+                                <tr>
+                                    <td>
+                                        <strong>{{.Brand}} {{.Model}}</strong>
+                                        <div style="font-size: 0.75rem; color: var(--text-dim);">{{.Color}} &bull; {{.Condition}}</div>
+                                    </td>
+                                    <td>ID #{{.IDUser}}</td>
+                                    <td><strong>${{.Price}}</strong></td>
+                                    <td>{{.Year}} &bull; {{.Mileage}} km</td>
+                                    <td>{{.PublishedAt.Format "02/01/2006 15:04"}}</td>
+                                    <td style="text-align: right;">
+                                        <div style="display: inline-flex; gap: 0.4rem;">
+                                            <!-- Autorizar Publicación (HU-ADM-01) -->
+                                            <form action="/admin/publications/authorize" method="POST" style="display: inline;">
+                                                <input type="hidden" name="idPublication" value="{{.IDPublication}}">
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    Autorizar
+                                                </button>
+                                            </form>
+
+                                            <!-- Eliminar Publicación (HU-ADM-01) -->
+                                            <form action="/admin/publications/delete" method="POST" style="display: inline;">
+                                                <input type="hidden" name="idPublication" value="{{.IDPublication}}">
+                                                <button type="submit" class="btn btn-danger btn-sm">
+                                                    Rechazar
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            {{else}}
+                <div class="empty-state">
+                    <h3>Bandeja al día</h3>
+                    <p>No hay publicaciones pendientes de revisión en este momento.</p>
+                </div>
+            {{end}}
+        </section>
+
+        <!-- Section 2: Publicaciones Activas en el Catálogo -->
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Publicaciones Activas en Catálogo</h2>
+            </div>
+
+            {{if .ActivePublications}}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Vehículo</th>
+                                <th>Precio</th>
+                                <th>Estado</th>
+                                <th style="text-align: right;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .ActivePublications}}
+                                <tr>
+                                    <td>#{{.IDPublication}}</td>
+                                    <td>
+                                        <strong>{{.Brand}} {{.Model}}</strong> ({{.Year}})
+                                    </td>
+                                    <td>${{.Price}} USD</td>
+                                    <td>
+                                        <span class="status-pill status-published">{{.Status}}</span>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <form action="/admin/publications/delete" method="POST" style="display: inline;">
+                                            <input type="hidden" name="idPublication" value="{{.IDPublication}}">
+                                            <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--status-danger);">
+                                                Eliminar
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            {{else}}
+                <p style="color: var(--text-muted); font-size: 0.85rem;">No hay publicaciones activas.</p>
+            {{end}}
+        </section>
+
+        <!-- Section 3: Gestión de Usuarios (HU-ADM-01) -->
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Usuarios Registrados</h2>
+            </div>
+
+            {{if .Users}}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Correo</th>
+                                <th>Teléfono</th>
+                                <th>Ciudad</th>
+                                <th>Rol</th>
+                                <th style="text-align: right;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Users}}
+                                <tr>
+                                    <td>#{{.IDUser}}</td>
+                                    <td><strong>{{.Name}}</strong></td>
+                                    <td>{{.Email}}</td>
+                                    <td>{{.Phone}}</td>
+                                    <td>{{.City}}</td>
+                                    <td>
+                                        <span class="user-role-badge {{if eq .Role "admin"}}admin{{end}}">{{.Role}}</span>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        {{if ne .Role "admin"}}
+                                            <form action="/admin/users/delete" method="POST" style="display: inline;">
+                                                <input type="hidden" name="idUser" value="{{.IDUser}}">
+                                                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--status-danger);">
+                                                    Eliminar
+                                                </button>
+                                            </form>
+                                        {{else}}
+                                            <span style="font-size: 0.75rem; color: var(--text-dim);">Sistema</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            {{else}}
+                <p style="color: var(--text-muted); font-size: 0.85rem;">No hay usuarios para mostrar.</p>
+            {{end}}
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>AutoMarket &bull; Sistema de Gestión y Catálogo de Vehículos.</p>
+    </footer>
+
+</body>
+</html>
