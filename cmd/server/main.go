@@ -20,23 +20,31 @@ func main() {
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
-	// 3. Inicializar router de Gin sin el logger genérico (usando gin.New)
+	// 3. Inicializar capas del módulo Publicación (Persistencia JSON en data/publication.json)
+	pubRepo := repositories.NewPublicationRepository("data/publication.json")
+	pubService := services.NewPublicationService(pubRepo)
+	pubHandler := handlers.NewPublicationHandler(pubService)
+
+	// 4. Inicializar router de Gin sin el logger genérico (usando gin.New)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.AuditMiddleware(auditRepo))
 
-	// 4. Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
+	// 5. Cargar plantillas HTML y servir archivos estáticos (CSS, JS, uploads)
 	router.LoadHTMLGlob("web/templates/*.html")
 	router.Static("/static", "./web/static")
 
-	// 5. Registrar endpoints de la API de Usuarios (/users)
+	// 6. Registrar endpoints de la API de Usuarios (/users)
 	userHandler.RegisterRoutes(router, nil)
 
-	// 6. Registrar rutas para la interfaz Web SSR (100% Go y Gin, Cero JavaScript)
-	webHandler := handlers.NewWebHandler(userService)
-	webHandler.RegisterWebRoutes(router)
+	// 7. Registrar endpoints de la API de Publicaciones (/publications)
+	pubHandler.RegisterRoutes(router, nil)
 
-	// 6. Iniciar el servidor en el puerto 8080
+	// 8. Registrar rutas para la interfaz Web SSR (comentado temporalmente para pruebas de API)
+	// webHandler := handlers.NewWebHandler(userService)
+	// webHandler.RegisterWebRoutes(router)
+
+	// 9. Iniciar el servidor en el puerto 8080
 	port := ":8080"
 	log.Printf("💻 Servidor AutoMarket iniciando en http://localhost%s\n", port)
 	if err := router.Run(port); err != nil {

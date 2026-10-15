@@ -24,6 +24,7 @@ func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware g
 	pubGroup.GET("/", h.GetAllPublication)
 	pubGroup.GET("/:id", h.GetPublication)
 
+	// --- Rutas Protegidas Generales (Requieren Autenticación) ---
 	protected := pubGroup.Group("/")
 	if authMiddleware != nil {
 		protected.Use(authMiddleware)
@@ -33,6 +34,13 @@ func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware g
 	{
 		protected.POST("/", h.CreatePublication)
 		protected.PATCH("/:id", h.UpdatePublication)
+	}
+
+	// --- Rutas Protegidas de Administración (HU-ADM-01: Moderar y autorizar) ---
+	adminGroup := protected.Group("/")
+	adminGroup.Use(middleware.RequireRoles("admin"))
+	{
+		adminGroup.POST("/:id/authorize", h.AuthorizePublication)
 	}
 }
 
@@ -99,4 +107,17 @@ func (h *PublicationHandler) UpdatePublication(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Publicación actualizada exitosamente", updatedPublication)
+}
+
+// AuthorizePublication maneja la petición POST para que un administrador autorice un vehículo
+func (h *PublicationHandler) AuthorizePublication(c *gin.Context) {
+	id := c.Param("id")
+
+	authorizedPublication, err := h.publicationService.Authorize(id)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No se pudo autorizar la publicación", err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Publicación autorizada exitosamente", authorizedPublication)
 }
