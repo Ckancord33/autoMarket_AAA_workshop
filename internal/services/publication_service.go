@@ -12,6 +12,7 @@ import (
 
 // DTOs para la transferencia de datos en el módulo de Publicaciones
 type CreatePublicationRequest struct {
+	IDUser      int     `json:"idUser,omitempty"`
 	Brand       string  `json:"brand"`
 	Model       string  `json:"model"`
 	Year        int     `json:"year"`
@@ -48,6 +49,7 @@ type PublicationService interface {
 	GetAll(filters PublicationFilterRequest) ([]models.Publication, error)
 	Update(id string, req UpdatePublicationRequest) (*models.Publication, error)
 	Authorize(id string) (*models.Publication, error)
+	Delete(id string) error
 }
 
 // publicationService es la implementación concreta de PublicationService
@@ -83,8 +85,13 @@ func (s *publicationService) Create(req CreatePublicationRequest) (*models.Publi
 		return nil, errors.New("el kilometraje no puede ser negativo")
 	}
 
+	idUser := req.IDUser
+	if idUser <= 0 {
+		idUser = 2 // Por defecto se asocia al vendedor demo del sistema
+	}
+
 	newPub := &models.Publication{
-		IDUser:       2, // Por defecto se asocia al vendedor demo del sistema
+		IDUser:       idUser,
 		Brand:        brand,
 		Model:        model,
 		Year:         req.Year,
@@ -235,4 +242,14 @@ func (s *publicationService) Authorize(idStr string) (*models.Publication, error
 	existing.Status = "publicada"
 
 	return s.repo.Update(existing)
+}
+
+// Delete elimina una publicación por su ID (HU-ADM-01)
+func (s *publicationService) Delete(idStr string) error {
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		return errors.New("el ID de la publicación debe ser un número entero positivo")
+	}
+
+	return s.repo.Delete(id)
 }

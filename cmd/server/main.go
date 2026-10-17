@@ -40,9 +40,9 @@ func main() {
 	// 7. Registrar endpoints de la API de Publicaciones (/publications)
 	pubHandler.RegisterRoutes(router, nil)
 
-	// 8. Registrar rutas para la interfaz Web SSR (comentado temporalmente para pruebas de API)
-	// webHandler := handlers.NewWebHandler(userService)
-	// webHandler.RegisterWebRoutes(router)
+	// 8. Registrar rutas para la interfaz Web SSR
+	webHandler := handlers.NewWebHandler(userService, pubService)
+	webHandler.RegisterWebRoutes(router)
 
 	// 9. Iniciar el servidor en el puerto 8080
 	port := ":8080"

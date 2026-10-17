@@ -5,6 +5,7 @@ import (
 	"automarket/internal/services"
 	"automarket/pkg/response"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +23,7 @@ func NewPublicationHandler(ps services.PublicationService) *PublicationHandler {
 func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
 	pubGroup := router.Group("/publications")
 	pubGroup.GET("/", h.GetAllPublication)
-	pubGroup.GET("/:id", h.GetPublication)
+	// Nota: GET /publications/:id es atendido por WebHandler.PublicationDetailView para dar soporte tanto a la vista HTML como a clientes API (JSON) sin colisión de rutas.
 
 	// --- Rutas Protegidas Generales (Requieren Autenticación) ---
 	protected := pubGroup.Group("/")
@@ -50,6 +51,14 @@ func (h *PublicationHandler) CreatePublication(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "Datos de publicación inválidos", err)
 		return
+	}
+
+	if req.IDUser <= 0 {
+		if uidStr := c.GetString("userID"); uidStr != "" {
+			if uid, err := strconv.Atoi(uidStr); err == nil && uid > 0 {
+				req.IDUser = uid
+			}
+		}
 	}
 
 	publication, err := h.publicationService.Create(req)

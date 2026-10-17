@@ -1,176 +1,31 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"automarket/internal/middleware"
 	"automarket/internal/models"
 	"automarket/internal/services"
+	"automarket/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
 
-// WebHandler gestiona la interfaz web Server-Side Rendering (SSR).
-// La persistencia de publicaciones se almacena en el archivo data/publication.json.
+// WebHandler gestiona la interfaz web Server-Side Rendering (SSR) conectando
+// las vistas directamente con las capas de servicio reales (UserService y PublicationService).
 type WebHandler struct {
 	userService services.UserService
-	filePath    string
-	mu          sync.RWMutex
-	pubs        map[int]models.Publication
-	lastPubID   int
+	pubService  services.PublicationService
 }
 
 // NewWebHandler crea el controlador para la interfaz web SSR
-func NewWebHandler(us services.UserService) *WebHandler {
-	h := &WebHandler{
+func NewWebHandler(us services.UserService, ps services.PublicationService) *WebHandler {
+	return &WebHandler{
 		userService: us,
-		filePath:    "data/publication.json",
-		pubs:        make(map[int]models.Publication),
-		lastPubID:   0,
-	}
-
-	_ = h.ensureFileAndLoad()
-	return h
-}
-
-// ensureFileAndLoad garantiza la existencia de data/publication.json y carga los datos a memoria.
-func (h *WebHandler) ensureFileAndLoad() error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	info, err := os.Stat(h.filePath)
-	if os.IsNotExist(err) || (err == nil && info.Size() == 0) {
-		seed := h.generateSeedPublications()
-		data, err := json.MarshalIndent(seed, "", "  ")
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(h.filePath, data, 0644); err != nil {
-			return err
-		}
-		for _, p := range seed {
-			h.pubs[p.IDPublication] = p
-			if p.IDPublication > h.lastPubID {
-				h.lastPubID = p.IDPublication
-			}
-		}
-		return nil
-	}
-
-	data, err := os.ReadFile(h.filePath)
-	if err != nil {
-		return err
-	}
-
-	var pubList []models.Publication
-	if err := json.Unmarshal(data, &pubList); err != nil {
-		return err
-	}
-
-	for _, p := range pubList {
-		h.pubs[p.IDPublication] = p
-		if p.IDPublication > h.lastPubID {
-			h.lastPubID = p.IDPublication
-		}
-	}
-
-	return nil
-}
-
-// persistLocked guarda el estado de las publicaciones en data/publication.json
-func (h *WebHandler) persistLocked() error {
-	list := make([]models.Publication, 0, len(h.pubs))
-	for _, p := range h.pubs {
-		list = append(list, p)
-	}
-
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].IDPublication < list[j].IDPublication
-	})
-
-	data, err := json.MarshalIndent(list, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(h.filePath, data, 0644)
-}
-
-// generateSeedPublications inicializa el catálogo si el archivo data/publication.json está vacío
-func (h *WebHandler) generateSeedPublications() []models.Publication {
-	now := time.Now()
-	return []models.Publication{
-		{
-			IDPublication: 1,
-			IDUser:        2,
-			Brand:         "BMW",
-			Model:         "M4 Competition Coupé",
-			Year:          2023,
-			Color:         "Azul Isle of Man",
-			Condition:     "Usado Certificado",
-			Price:         84900,
-			Description:   "BMW M4 Competition Coupé en estado impecable. Motor 3.0L M TwinPower Turbo de 510 HP, caja M Steptronic de 8 velocidades con Drivelogic. Mantenimientos al día en concesionario oficial.",
-			Status:        "publicada",
-			IsAuthorized:  true,
-			PublishedAt:   now.Add(-48 * time.Hour),
-			Mileage:       12500,
-			ImageURL:      "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=900&q=80",
-		},
-		{
-			IDPublication: 2,
-			IDUser:        2,
-			Brand:         "Porsche",
-			Model:         "911 Carrera S (992)",
-			Year:          2022,
-			Color:         "Gris Plata GT",
-			Condition:     "Usado",
-			Price:         138000,
-			Description:   "Porsche 911 Carrera S con paquete Sport Chrono, escape deportivo y rines Carrera Classic de 20/21 pulgadas. Cuidado de colección, único dueño.",
-			Status:        "publicada",
-			IsAuthorized:  true,
-			PublishedAt:   now.Add(-24 * time.Hour),
-			Mileage:       8900,
-			ImageURL:      "https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&w=900&q=80",
-		},
-		{
-			IDPublication: 3,
-			IDUser:        2,
-			Brand:         "Toyota",
-			Model:         "Land Cruiser 300 VX",
-			Year:          2024,
-			Color:         "Blanco Perlado",
-			Condition:     "Nuevo",
-			Price:         112000,
-			Description:   "Toyota Land Cruiser 300 VX V6 Twin Turbo Diésel. Suspensión adaptativa, 7 puestos con tapicería en cuero y tracción integral permanente.",
-			Status:        "publicada",
-			IsAuthorized:  true,
-			PublishedAt:   now.Add(-12 * time.Hour),
-			Mileage:       2800,
-			ImageURL:      "https://images.unsplash.com/photo-1594502184342-2e12f877aa73?auto=format&fit=crop&w=900&q=80",
-		},
-		{
-			IDPublication: 4,
-			IDUser:        2,
-			Brand:         "Mercedes-Benz",
-			Model:         "AMG GT Coupé",
-			Year:          2023,
-			Color:         "Negro Obsidiana",
-			Condition:     "Usado",
-			Price:         125000,
-			Description:   "Mercedes-AMG GT Coupé Biturbo con paquete aerodinámico AMG. En espera de autorización por el equipo de moderación.",
-			Status:        "pendiente",
-			IsAuthorized:  false,
-			PublishedAt:   now.Add(-2 * time.Hour),
-			Mileage:       14200,
-			ImageURL:      "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=900&q=80",
-		},
+		pubService:  ps,
 	}
 }
 
@@ -209,13 +64,15 @@ func (h *WebHandler) RegisterWebRoutes(router *gin.Engine) {
 	}
 }
 
-// IndexView renderiza el catálogo público (HU-VIS-01) sin filtros no solicitados
+// IndexView renderiza el catálogo público (HU-VIS-01) consultando las publicaciones reales
 func (h *WebHandler) IndexView(c *gin.Context) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	allPubs, err := h.pubService.GetAll(services.PublicationFilterRequest{})
+	if err != nil {
+		allPubs = []models.Publication{}
+	}
 
 	var visiblePubs []models.Publication
-	for _, p := range h.pubs {
+	for _, p := range allPubs {
 		// En catálogo público SOLO se muestran las autorizadas y en estado "publicada"
 		if p.IsAuthorized && p.Status == "publicada" {
 			visiblePubs = append(visiblePubs, p)
@@ -240,20 +97,23 @@ func (h *WebHandler) IndexView(c *gin.Context) {
 }
 
 // PublicationDetailView muestra la ficha técnica y los datos de contacto del vendedor (HU-VIS-01)
+// Brinda soporte tanto a la vista HTML como a clientes API que soliciten JSON.
 func (h *WebHandler) PublicationDetailView(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
+
+	found, err := h.pubService.GetByID(idStr)
+	if err != nil || found == nil {
+		if strings.Contains(c.GetHeader("Accept"), "application/json") {
+			response.Error(c, http.StatusNotFound, "Publicación no encontrada", err)
+			return
+		}
 		c.Redirect(http.StatusSeeOther, "/")
 		return
 	}
 
-	h.mu.RLock()
-	found, exists := h.pubs[id]
-	h.mu.RUnlock()
-
-	if !exists {
-		c.Redirect(http.StatusSeeOther, "/")
+	// Si es una petición API solicitando JSON exclusivamente
+	if strings.Contains(c.GetHeader("Accept"), "application/json") && !strings.Contains(c.GetHeader("Accept"), "text/html") {
+		response.Success(c, http.StatusOK, "Publicación obtenida exitosamente", found)
 		return
 	}
 
@@ -375,14 +235,13 @@ func (h *WebHandler) SellerDashboardView(c *gin.Context) {
 
 	user, _ := h.userService.GetByID(uidStr)
 
-	h.mu.RLock()
+	allPubs, _ := h.pubService.GetAll(services.PublicationFilterRequest{})
 	var myPubs []models.Publication
-	for _, p := range h.pubs {
+	for _, p := range allPubs {
 		if p.IDUser == uid || uid == 0 {
 			myPubs = append(myPubs, p)
 		}
 	}
-	h.mu.RUnlock()
 
 	sort.Slice(myPubs, func(i, j int) bool {
 		return myPubs[i].IDPublication > myPubs[j].IDPublication
@@ -394,7 +253,7 @@ func (h *WebHandler) SellerDashboardView(c *gin.Context) {
 	})
 }
 
-// CreatePublication registra una nueva publicación en estado "pendiente" (HU-VEN-01) y persiste a data/publication.json
+// CreatePublication registra una nueva publicación en estado "pendiente" (HU-VEN-01) a través de PublicationService
 func (h *WebHandler) CreatePublication(c *gin.Context) {
 	uidStr := c.GetString("userID")
 	uid, _ := strconv.Atoi(uidStr)
@@ -403,65 +262,56 @@ func (h *WebHandler) CreatePublication(c *gin.Context) {
 	mileage, _ := strconv.Atoi(c.PostForm("mileage"))
 	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
 
-	newPub := models.Publication{
-		IDUser:       uid,
-		Brand:        strings.TrimSpace(c.PostForm("brand")),
-		Model:        strings.TrimSpace(c.PostForm("model")),
-		Year:         year,
-		Color:        strings.TrimSpace(c.PostForm("color")),
-		Condition:    strings.TrimSpace(c.PostForm("condition")),
-		Price:        price,
-		Description:  strings.TrimSpace(c.PostForm("description")),
-		Status:       "pendiente", // Forzado por HU-VEN-01
-		IsAuthorized: false,       // Forzado por HU-VEN-01
-		PublishedAt:  time.Now(),
-		Mileage:      mileage,
-		ImageURL:     strings.TrimSpace(c.PostForm("imageUrl")),
-	}
-
-	h.mu.Lock()
-	h.lastPubID++
-	newPub.IDPublication = h.lastPubID
-	h.pubs[newPub.IDPublication] = newPub
-	_ = h.persistLocked()
-	h.mu.Unlock()
+	_, err := h.pubService.Create(services.CreatePublicationRequest{
+		IDUser:      uid,
+		Brand:       strings.TrimSpace(c.PostForm("brand")),
+		Model:       strings.TrimSpace(c.PostForm("model")),
+		Year:        year,
+		Color:       strings.TrimSpace(c.PostForm("color")),
+		Condition:   strings.TrimSpace(c.PostForm("condition")),
+		Price:       price,
+		Description: strings.TrimSpace(c.PostForm("description")),
+		Mileage:     mileage,
+		ImageURL:    strings.TrimSpace(c.PostForm("imageUrl")),
+	})
 
 	user, _ := h.userService.GetByID(uidStr)
 
-	h.mu.RLock()
+	allPubs, _ := h.pubService.GetAll(services.PublicationFilterRequest{})
 	var myPubs []models.Publication
-	for _, p := range h.pubs {
+	for _, p := range allPubs {
 		if p.IDUser == uid || uid == 0 {
 			myPubs = append(myPubs, p)
 		}
 	}
-	h.mu.RUnlock()
 
 	sort.Slice(myPubs, func(i, j int) bool {
 		return myPubs[i].IDPublication > myPubs[j].IDPublication
 	})
 
-	c.HTML(http.StatusOK, "seller.html", gin.H{
+	data := gin.H{
 		"User":         user,
 		"Publications": myPubs,
-		"Success":      "Publicación registrada. Se encuentra en estado 'pendiente' a la espera de autorización por el administrador.",
-	})
+	}
+
+	if err != nil {
+		data["Error"] = err.Error()
+	} else {
+		data["Success"] = "Publicación registrada. Se encuentra en estado 'pendiente' a la espera de autorización por el administrador."
+	}
+
+	c.HTML(http.StatusOK, "seller.html", data)
 }
 
-// ReportSale marca una publicación como vendida (HU-VEN-01) y persiste a data/publication.json
+// ReportSale marca una publicación como vendida (HU-VEN-01) usando PublicationService
 func (h *WebHandler) ReportSale(c *gin.Context) {
-	pubIDStr := c.PostForm("idPublication")
-	pubID, _ := strconv.Atoi(pubIDStr)
-
-	h.mu.Lock()
-	if p, exists := h.pubs[pubID]; exists {
-		now := time.Now()
-		p.Status = "vendida"
-		p.SoldAt = &now
-		h.pubs[pubID] = p
-		_ = h.persistLocked()
+	pubIDStr := strings.TrimSpace(c.PostForm("idPublication"))
+	if pubIDStr != "" {
+		status := "vendida"
+		_, _ = h.pubService.Update(pubIDStr, services.UpdatePublicationRequest{
+			Status: &status,
+		})
 	}
-	h.mu.Unlock()
 
 	c.Redirect(http.StatusSeeOther, "/seller")
 }
@@ -471,17 +321,16 @@ func (h *WebHandler) AdminDashboardView(c *gin.Context) {
 	uidStr := c.GetString("userID")
 	user, _ := h.userService.GetByID(uidStr)
 
-	h.mu.RLock()
+	allPubs, _ := h.pubService.GetAll(services.PublicationFilterRequest{})
 	var pendingPubs []models.Publication
 	var activePubs []models.Publication
-	for _, p := range h.pubs {
+	for _, p := range allPubs {
 		if !p.IsAuthorized || p.Status == "pendiente" {
 			pendingPubs = append(pendingPubs, p)
 		} else if p.Status == "publicada" {
 			activePubs = append(activePubs, p)
 		}
 	}
-	h.mu.RUnlock()
 
 	sort.Slice(pendingPubs, func(i, j int) bool {
 		return pendingPubs[i].IDPublication > pendingPubs[j].IDPublication
@@ -497,34 +346,22 @@ func (h *WebHandler) AdminDashboardView(c *gin.Context) {
 	})
 }
 
-// AuthorizePublication autoriza una publicación haciéndola visible en el catálogo (HU-ADM-01) y persiste
+// AuthorizePublication autoriza una publicación haciéndola visible en el catálogo (HU-ADM-01)
 func (h *WebHandler) AuthorizePublication(c *gin.Context) {
-	pubIDStr := c.PostForm("idPublication")
-	pubID, _ := strconv.Atoi(pubIDStr)
-
-	h.mu.Lock()
-	if p, exists := h.pubs[pubID]; exists {
-		p.IsAuthorized = true
-		p.Status = "publicada"
-		h.pubs[pubID] = p
-		_ = h.persistLocked()
+	pubIDStr := strings.TrimSpace(c.PostForm("idPublication"))
+	if pubIDStr != "" {
+		_, _ = h.pubService.Authorize(pubIDStr)
 	}
-	h.mu.Unlock()
 
 	c.Redirect(http.StatusSeeOther, "/admin")
 }
 
-// DeletePublication elimina una publicación (HU-ADM-01) y persiste a data/publication.json
+// DeletePublication elimina una publicación del repositorio real (HU-ADM-01)
 func (h *WebHandler) DeletePublication(c *gin.Context) {
-	pubIDStr := c.PostForm("idPublication")
-	pubID, _ := strconv.Atoi(pubIDStr)
-
-	h.mu.Lock()
-	if _, exists := h.pubs[pubID]; exists {
-		delete(h.pubs, pubID)
-		_ = h.persistLocked()
+	pubIDStr := strings.TrimSpace(c.PostForm("idPublication"))
+	if pubIDStr != "" {
+		_ = h.pubService.Delete(pubIDStr)
 	}
-	h.mu.Unlock()
 
 	c.Redirect(http.StatusSeeOther, "/admin")
 }
