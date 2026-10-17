@@ -77,7 +77,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Inicio de sesión exitoso", authResp)
 }
 
-// DeleteUser maneja la petición DELETE para que un administrador elimine un usuario (HU-ADM-01).
+// DeleteUser maneja la petición DELETE para que un administrador elimine un usuario.
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 

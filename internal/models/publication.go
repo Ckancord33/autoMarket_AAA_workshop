@@ -18,5 +18,5 @@ type Publication struct {
 	PublishedAt   time.Time  `json:"publishedAt"`
 	SoldAt        *time.Time `json:"soldAt,omitempty"`
 	Mileage       int        `json:"mileage"`
-	ImageURL      string     `json:"imageUrl"`
+	Images        []string   `json:"images"`
 }

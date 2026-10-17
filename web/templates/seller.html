@@ -63,7 +63,7 @@
                 Aviso: Toda nueva publicación se registrará en estado <strong>pendiente de aprobación</strong> hasta que un administrador la autorice para el catálogo público (HU-VEN-01).
             </div>
 
-            <form action="/seller/publications" method="POST">
+            <form action="/seller/publications" method="POST" enctype="multipart/form-data">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="brand">Marca</label>
@@ -104,10 +104,14 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label for="imageUrl">URL de la Imagen</label>
-                        <input type="url" id="imageUrl" name="imageUrl" placeholder="https://..." required>
-                        <span class="form-help">Enlace web directo a la fotografía del auto.</span>
+                    <div class="form-group form-full">
+                        <label for="imageInput">Fotografías del Vehículo (solo imágenes)</label>
+                        <input type="file" id="imageInput" accept="image/*" multiple style="margin-bottom: 0.5rem;">
+                        <input type="file" id="actualFilesInput" name="images" multiple style="display: none;" required>
+                        <span class="form-help">Selecciona una o más fotos. Puedes eliminar las que no quieras antes de enviar.</span>
+                        
+                        <!-- Lista de miniaturas con botón de quitar -->
+                        <div id="previewList" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem;"></div>
                     </div>
 
                     <div class="form-group form-full">
@@ -120,6 +124,70 @@
                     <button type="submit" class="btn btn-primary">Enviar a Moderación</button>
                 </div>
             </form>
+
+            <script>
+                // Almacén en memoria de los archivos elegidos por el usuario en el cliente
+                let selectedFiles = [];
+
+                const imageInput = document.getElementById('imageInput');
+                const actualFilesInput = document.getElementById('actualFilesInput');
+                const previewList = document.getElementById('previewList');
+
+                imageInput.addEventListener('change', function(e) {
+                    const newFiles = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+                    // Acumular imágenes sin borrar las anteriores
+                    selectedFiles = selectedFiles.concat(newFiles);
+                    imageInput.value = ''; // Limpiar el selector para permitir re-seleccionar
+                    syncFiles();
+                    renderPreviews();
+                });
+
+                function removeFile(index) {
+                    selectedFiles.splice(index, 1);
+                    syncFiles();
+                    renderPreviews();
+                }
+
+                function syncFiles() {
+                    const dt = new DataTransfer();
+                    selectedFiles.forEach(file => dt.items.add(file));
+                    actualFilesInput.files = dt.files;
+                }
+
+                function renderPreviews() {
+                    previewList.innerHTML = '';
+                    selectedFiles.forEach((file, index) => {
+                        const card = document.createElement('div');
+                        card.style.cssText = 'position: relative; width: 95px; height: 95px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-strong, #33435c); background: #000; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);';
+
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; display: block;';
+
+                        // Botón de eliminar (X)
+                        const btnRemove = document.createElement('button');
+                        btnRemove.type = 'button';
+                        btnRemove.innerHTML = '&times;';
+                        btnRemove.title = 'Quitar esta imagen';
+                        btnRemove.style.cssText = 'position: absolute; top: 4px; right: 4px; background: rgba(239, 68, 68, 0.9); color: #fff; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1; transition: transform 0.15s ease;';
+                        btnRemove.onmouseover = () => btnRemove.style.transform = 'scale(1.15)';
+                        btnRemove.onmouseout = () => btnRemove.style.transform = 'scale(1)';
+                        btnRemove.onclick = () => removeFile(index);
+
+                        // Indicador de foto principal
+                        if (index === 0) {
+                            const badge = document.createElement('span');
+                            badge.textContent = 'Principal';
+                            badge.style.cssText = 'position: absolute; bottom: 4px; left: 4px; background: rgba(37, 99, 235, 0.85); color: #fff; font-size: 0.65rem; padding: 1px 5px; border-radius: 4px; font-weight: 600;';
+                            card.appendChild(badge);
+                        }
+
+                        card.appendChild(img);
+                        card.appendChild(btnRemove);
+                        previewList.appendChild(card);
+                    });
+                }
+            </script>
         </section>
 
         <!-- Table Panel: Mis Publicaciones y Reportar Venta (HU-VEN-01) -->
