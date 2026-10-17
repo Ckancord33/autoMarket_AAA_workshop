@@ -1,10 +1,15 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"automarket/internal/middleware"
 	"automarket/internal/models"
@@ -135,36 +140,79 @@ func (h *WebHandler) PublicationDetailView(c *gin.Context) {
 		}
 	}
 
+	type CarouselSlide struct {
+		Index   int
+		Total   int
+		URL     string
+		PrevID  string
+		NextID  string
+		SlideID string
+	}
+
+	var slides []CarouselSlide
+	totalImgs := len(found.Images)
+	for i, imgURL := range found.Images {
+		prevIdx := (i - 1 + totalImgs) % totalImgs
+		nextIdx := (i + 1) % totalImgs
+		slides = append(slides, CarouselSlide{
+			Index:   i + 1,
+			Total:   totalImgs,
+			URL:     imgURL,
+			SlideID: fmt.Sprintf("slide-%d", i+1),
+			PrevID:  fmt.Sprintf("slide-%d", prevIdx+1),
+			NextID:  fmt.Sprintf("slide-%d", nextIdx+1),
+		})
+	}
+
 	c.HTML(http.StatusOK, "publication_detail.html", gin.H{
 		"Publication": found,
 		"Seller":      seller,
 		"User":        currentUser,
+		"Slides":      slides,
 	})
 }
 
 // LoginView muestra el formulario de login
 func (h *WebHandler) LoginView(c *gin.Context) {
-	if _, role, ok := middleware.GetUserSession(c); ok {
-		if role == "admin" {
-			c.Redirect(http.StatusFound, "/admin")
+	if uid, role, ok := middleware.GetUserSession(c); ok {
+		// Validar si el usuario aún existe en la base de datos (no fue eliminado por el admin)
+		if u, err := h.userService.GetByID(uid); err == nil && u != nil && u.IsActive {
+			if role == "admin" {
+				c.Redirect(http.StatusFound, "/admin")
+				return
+			}
+			c.Redirect(http.StatusFound, "/seller")
 			return
 		}
-		c.Redirect(http.StatusFound, "/seller")
-		return
+		// Si la cuenta fue eliminada, limpiar la cookie fantasma
+		c.SetCookie("token", "", -1, "/", "", false, true)
 	}
 
-	c.HTML(http.StatusOK, "login.html", gin.H{})
+	data := gin.H{}
+	if errMsg := c.Query("error"); errMsg != "" {
+		data["Error"] = errMsg
+	}
+	if msg := c.Query("success"); msg != "" {
+		data["Success"] = msg
+	}
+
+	c.HTML(http.StatusOK, "login.html", data)
 }
 
 // RegisterView muestra el formulario de registro de vendedor
 func (h *WebHandler) RegisterView(c *gin.Context) {
-	if _, role, ok := middleware.GetUserSession(c); ok {
-		if role == "admin" {
-			c.Redirect(http.StatusFound, "/admin")
+	if uid, role, ok := middleware.GetUserSession(c); ok {
+		// Validar si el usuario aún existe en la base de datos
+		if u, err := h.userService.GetByID(uid); err == nil && u != nil && u.IsActive {
+			if role == "admin" {
+				c.Redirect(http.StatusFound, "/admin")
+				return
+			}
+			c.Redirect(http.StatusFound, "/seller")
 			return
 		}
-		c.Redirect(http.StatusFound, "/seller")
-		return
+		// Si la cuenta fue eliminada, limpiar la cookie fantasma
+		c.SetCookie("token", "", -1, "/", "", false, true)
 	}
 
 	c.HTML(http.StatusOK, "register.html", gin.H{})
@@ -233,49 +281,12 @@ func (h *WebHandler) SellerDashboardView(c *gin.Context) {
 	uidStr := c.GetString("userID")
 	uid, _ := strconv.Atoi(uidStr)
 
-	user, _ := h.userService.GetByID(uidStr)
-
-	allPubs, _ := h.pubService.GetAll(services.PublicationFilterRequest{})
-	var myPubs []models.Publication
-	for _, p := range allPubs {
-		if p.IDUser == uid || uid == 0 {
-			myPubs = append(myPubs, p)
-		}
+	user, err := h.userService.GetByID(uidStr)
+	if err != nil || user == nil || !user.IsActive {
+		c.SetCookie("token", "", -1, "/", "", false, true)
+		c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Tu cuenta ha sido eliminada por el administrador."))
+		return
 	}
-
-	sort.Slice(myPubs, func(i, j int) bool {
-		return myPubs[i].IDPublication > myPubs[j].IDPublication
-	})
-
-	c.HTML(http.StatusOK, "seller.html", gin.H{
-		"User":         user,
-		"Publications": myPubs,
-	})
-}
-
-// CreatePublication registra una nueva publicación en estado "pendiente" (HU-VEN-01) a través de PublicationService
-func (h *WebHandler) CreatePublication(c *gin.Context) {
-	uidStr := c.GetString("userID")
-	uid, _ := strconv.Atoi(uidStr)
-
-	year, _ := strconv.Atoi(c.PostForm("year"))
-	mileage, _ := strconv.Atoi(c.PostForm("mileage"))
-	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
-
-	_, err := h.pubService.Create(services.CreatePublicationRequest{
-		IDUser:      uid,
-		Brand:       strings.TrimSpace(c.PostForm("brand")),
-		Model:       strings.TrimSpace(c.PostForm("model")),
-		Year:        year,
-		Color:       strings.TrimSpace(c.PostForm("color")),
-		Condition:   strings.TrimSpace(c.PostForm("condition")),
-		Price:       price,
-		Description: strings.TrimSpace(c.PostForm("description")),
-		Mileage:     mileage,
-		ImageURL:    strings.TrimSpace(c.PostForm("imageUrl")),
-	})
-
-	user, _ := h.userService.GetByID(uidStr)
 
 	allPubs, _ := h.pubService.GetAll(services.PublicationFilterRequest{})
 	var myPubs []models.Publication
@@ -294,13 +305,69 @@ func (h *WebHandler) CreatePublication(c *gin.Context) {
 		"Publications": myPubs,
 	}
 
-	if err != nil {
-		data["Error"] = err.Error()
-	} else {
-		data["Success"] = "Publicación registrada. Se encuentra en estado 'pendiente' a la espera de autorización por el administrador."
+	if msg := c.Query("success"); msg != "" {
+		data["Success"] = msg
+	}
+	if errMsg := c.Query("error"); errMsg != "" {
+		data["Error"] = errMsg
 	}
 
 	c.HTML(http.StatusOK, "seller.html", data)
+}
+
+// CreatePublication registra una nueva publicación en estado "pendiente" (HU-VEN-01) a través de PublicationService
+func (h *WebHandler) CreatePublication(c *gin.Context) {
+	uidStr := c.GetString("userID")
+	uid, _ := strconv.Atoi(uidStr)
+
+	year, _ := strconv.Atoi(c.PostForm("year"))
+	mileage, _ := strconv.Atoi(c.PostForm("mileage"))
+	price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
+
+	var imagePaths []string
+	form, formErr := c.MultipartForm()
+	if formErr == nil && form != nil {
+		files := form.File["images"]
+		uploadDir := filepath.Join("web", "static", "uploads")
+		_ = os.MkdirAll(uploadDir, 0755)
+
+		allowedExts := map[string]bool{
+			".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true,
+		}
+
+		for _, fileHeader := range files {
+			ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+			if !allowedExts[ext] {
+				continue
+			}
+			newFileName := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), len(imagePaths)+1, ext)
+			dst := filepath.Join(uploadDir, newFileName)
+			if err := c.SaveUploadedFile(fileHeader, dst); err == nil {
+				imagePaths = append(imagePaths, "/static/uploads/"+newFileName)
+			}
+		}
+	}
+
+	_, err := h.pubService.Create(services.CreatePublicationRequest{
+		IDUser:      uid,
+		Brand:       strings.TrimSpace(c.PostForm("brand")),
+		Model:       strings.TrimSpace(c.PostForm("model")),
+		Year:        year,
+		Color:       strings.TrimSpace(c.PostForm("color")),
+		Condition:   strings.TrimSpace(c.PostForm("condition")),
+		Price:       price,
+		Description: strings.TrimSpace(c.PostForm("description")),
+		Mileage:     mileage,
+		Images:      imagePaths,
+	})
+
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/seller?error="+url.QueryEscape(err.Error()))
+		return
+	}
+
+	successMsg := "Publicación registrada. Se encuentra en estado 'pendiente' a la espera de autorización por el administrador."
+	c.Redirect(http.StatusSeeOther, "/seller?success="+url.QueryEscape(successMsg))
 }
 
 // ReportSale marca una publicación como vendida (HU-VEN-01) usando PublicationService
@@ -332,15 +399,47 @@ func (h *WebHandler) AdminDashboardView(c *gin.Context) {
 		}
 	}
 
-	sort.Slice(pendingPubs, func(i, j int) bool {
-		return pendingPubs[i].IDPublication > pendingPubs[j].IDPublication
-	})
+	type AdminSlide struct {
+		Index   int
+		Total   int
+		URL     string
+		PrevID  string
+		NextID  string
+		SlideID string
+	}
+
+	type AdminPubView struct {
+		models.Publication
+		Slides []AdminSlide
+	}
+
+	var pendingViews []AdminPubView
+	for _, p := range pendingPubs {
+		var pSlides []AdminSlide
+		tot := len(p.Images)
+		for i, img := range p.Images {
+			prev := (i - 1 + tot) % tot
+			next := (i + 1) % tot
+			pSlides = append(pSlides, AdminSlide{
+				Index:   i + 1,
+				Total:   tot,
+				URL:     img,
+				SlideID: fmt.Sprintf("admin-pub-%d-slide-%d", p.IDPublication, i+1),
+				PrevID:  fmt.Sprintf("admin-pub-%d-slide-%d", p.IDPublication, prev+1),
+				NextID:  fmt.Sprintf("admin-pub-%d-slide-%d", p.IDPublication, next+1),
+			})
+		}
+		pendingViews = append(pendingViews, AdminPubView{
+			Publication: p,
+			Slides:      pSlides,
+		})
+	}
 
 	users, _ := h.userService.GetAll(services.UserFilterRequest{})
 
 	c.HTML(http.StatusOK, "admin.html", gin.H{
 		"User":                user,
-		"PendingPublications": pendingPubs,
+		"PendingPublications": pendingViews,
 		"ActivePublications":  activePubs,
 		"Users":               users,
 	})

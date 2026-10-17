@@ -55,7 +55,7 @@
                     <article class="vehicle-card">
                         <div class="vehicle-image-wrapper">
                             <span class="badge-tag">{{.Condition}}</span>
-                            <img src="{{if .ImageURL}}{{.ImageURL}}{{else}}/static/uploads/placeholder.svg{{end}}" 
+                            <img src="{{if .Images}}{{index .Images 0}}{{else}}/static/uploads/placeholder.svg{{end}}" 
                                  alt="{{.Brand}} {{.Model}}" 
                                  class="vehicle-image"
                                  loading="lazy">

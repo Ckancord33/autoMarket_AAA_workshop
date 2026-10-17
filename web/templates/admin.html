@@ -88,7 +88,12 @@
                                     <td>{{.Year}} &bull; {{.Mileage}} km</td>
                                     <td>{{.PublishedAt.Format "02/01/2006 15:04"}}</td>
                                     <td style="text-align: right;">
-                                        <div style="display: inline-flex; gap: 0.4rem;">
+                                        <div style="display: inline-flex; gap: 0.4rem; align-items: center;">
+                                            <!-- Ver Fotos Flotante Puro CSS -->
+                                            <a href="#modal-pub-{{.IDPublication}}" class="btn btn-secondary btn-sm" style="text-decoration: none;">
+                                                 Ver Fotos ({{len .Images}})
+                                            </a>
+
                                             <!-- Autorizar Publicación (HU-ADM-01) -->
                                             <form action="/admin/publications/authorize" method="POST" style="display: inline;">
                                                 <input type="hidden" name="idPublication" value="{{.IDPublication}}">
@@ -225,5 +230,41 @@
         <p>AutoMarket &bull; Sistema de Gestión y Catálogo de Vehículos.</p>
     </footer>
 
+    <!-- Ventanas Flotantes / Modales Puros en CSS (:target) para cada publicación pendiente -->
+    {{range .PendingPublications}}
+        <div id="modal-pub-{{.IDPublication}}" class="css-modal">
+            <div class="css-modal-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">{{.Brand}} {{.Model}} ({{.Year}})</h3>
+                    <a href="#" style="text-decoration: none; color: #aaa; font-size: 1.6rem; line-height: 1; padding: 0 4px;">&times;</a>
+                </div>
+                
+                <div class="css-gallery-viewport" style="height: 350px;">
+                    {{if .Slides}}
+                        {{$pubID := .IDPublication}}
+                        {{range .Slides}}
+                            <div id="{{.SlideID}}" class="css-gallery-slide">
+                                <img src="{{.URL}}" alt="Foto vehículo">
+                                {{if gt .Total 1}}
+                                    <a href="#{{.PrevID}}" class="css-nav-arrow css-nav-prev">&#10094;</a>
+                                    <a href="#{{.NextID}}" class="css-nav-arrow css-nav-next">&#10095;</a>
+                                    <div class="css-slide-indicator">{{.Index}} / {{.Total}}</div>
+                                {{end}}
+                            </div>
+                        {{end}}
+                    {{else}}
+                        <div class="css-gallery-slide">
+                            <img src="/static/uploads/placeholder.svg" alt="Sin imagen">
+                        </div>
+                    {{end}}
+                </div>
+
+                <div style="margin-top: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.8rem; color: var(--text-dim);">Publicación #{{.IDPublication}} &bull; Precio: ${{.Price}} USD</span>
+                    <a href="#" class="btn btn-secondary btn-sm" style="text-decoration: none;">Cerrar</a>
+                </div>
+            </div>
+        </div>
+    {{end}}
 </body>
 </html>

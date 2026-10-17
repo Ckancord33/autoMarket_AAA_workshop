@@ -44,9 +44,23 @@
         <div class="detail-layout">
             <!-- Left Column: Media & Specifications -->
             <div class="detail-main">
-                <div class="detail-image-box">
-                    <img src="{{if .Publication.ImageURL}}{{.Publication.ImageURL}}{{else}}/static/uploads/placeholder.svg{{end}}" 
-                         alt="{{.Publication.Brand}} {{.Publication.Model}}">
+                <div class="css-gallery-viewport" style="min-height: 400px;">
+                    {{if .Slides}}
+                        {{range .Slides}}
+                            <div id="{{.SlideID}}" class="css-gallery-slide">
+                                <img src="{{.URL}}" alt="{{$.Publication.Brand}} {{$.Publication.Model}}">
+                                {{if gt .Total 1}}
+                                    <a href="#{{.PrevID}}" class="css-nav-arrow css-nav-prev">&#10094;</a>
+                                    <a href="#{{.NextID}}" class="css-nav-arrow css-nav-next">&#10095;</a>
+                                    <div class="css-slide-indicator">{{.Index}} / {{.Total}}</div>
+                                {{end}}
+                            </div>
+                        {{end}}
+                    {{else}}
+                        <div class="css-gallery-slide">
+                            <img src="/static/uploads/placeholder.svg" alt="{{.Publication.Brand}} {{.Publication.Model}}">
+                        </div>
+                    {{end}}
                 </div>
 
                 <div class="detail-info-card">

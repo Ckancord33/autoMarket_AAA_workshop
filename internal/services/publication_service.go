@@ -20,21 +20,21 @@ type CreatePublicationRequest struct {
 	Condition   string  `json:"condition"`
 	Price       float64 `json:"price"`
 	Description string  `json:"description"`
-	Mileage     int     `json:"mileage"`
-	ImageURL    string  `json:"imageUrl"`
+	Mileage     int      `json:"mileage"`
+	Images      []string `json:"images"`
 }
 
 type UpdatePublicationRequest struct {
-	Brand       *string  `json:"brand"`
-	Model       *string  `json:"model"`
-	Year        *int     `json:"year"`
-	Color       *string  `json:"color"`
-	Condition   *string  `json:"condition"`
-	Price       *float64 `json:"price"`
-	Description *string  `json:"description"`
-	Mileage     *int     `json:"mileage"`
-	Status      *string  `json:"status"`
-	ImageURL    *string  `json:"imageUrl"`
+	Brand       *string   `json:"brand"`
+	Model       *string   `json:"model"`
+	Year        *int      `json:"year"`
+	Color       *string   `json:"color"`
+	Condition   *string   `json:"condition"`
+	Price       *float64  `json:"price"`
+	Description *string   `json:"description"`
+	Mileage     *int      `json:"mileage"`
+	Status      *string   `json:"status"`
+	Images      *[]string `json:"images"`
 }
 
 type PublicationFilterRequest struct {
@@ -103,7 +103,7 @@ func (s *publicationService) Create(req CreatePublicationRequest) (*models.Publi
 		IsAuthorized: false,
 		PublishedAt:  time.Now(),
 		Mileage:      req.Mileage,
-		ImageURL:     strings.TrimSpace(req.ImageURL),
+		Images:       req.Images,
 	}
 
 	return s.repo.Create(newPub)
@@ -219,8 +219,8 @@ func (s *publicationService) Update(idStr string, req UpdatePublicationRequest) 
 		}
 	}
 
-	if req.ImageURL != nil {
-		existing.ImageURL = strings.TrimSpace(*req.ImageURL)
+	if req.Images != nil {
+		existing.Images = *req.Images
 	}
 
 	return s.repo.Update(existing)

@@ -16,7 +16,7 @@ El núcleo del taller consiste en diseñar e integrar un ecosistema de seguridad
 
 ## Modelo Relacional y Entidades
 
-El dominio de datos unifica las especificaciones mecánicas del vehículo, la fotografía del automotor (`imageUrl`) y las condiciones comerciales de la oferta en una sola entidad de publicación (`PUBLICATION`), vinculando al vendedor (`USER`) y los registros de trazabilidad de seguridad (`AUDIT_LOG`).
+El dominio de datos unifica las especificaciones mecánicas del vehículo, las fotografías del automotor (`images`) y las condiciones comerciales de la oferta en una sola entidad de publicación (`PUBLICATION`), vinculando al vendedor (`USER`) y los registros de trazabilidad de seguridad (`AUDIT_LOG`).
 
 ```mermaid
 ---
@@ -55,7 +55,7 @@ erDiagram
         datetime publishedAt 
         datetime soldAt "nullable"
         int mileage
-        string imageUrl
+        array images
     }
 
     AUDIT_LOG {
@@ -79,7 +79,7 @@ erDiagram
 ### Descripción de Entidades
 
 * **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`), estado activo (`isActive`) y rol asignado (`role`: Admin, Seller) para el control de acceso basado en roles (RBAC).
-* **`PUBLICATION`**: Modelo consolidado con clave primaria `idPublication` que unifica las propiedades físicas del vehículo (`brand`, `model`, `year`, `color`, `condition`, `mileage`), la imagen asociada (`imageUrl`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`), vinculado al vendedor (`idUser`).
+* **`PUBLICATION`**: Modelo consolidado con clave primaria `idPublication` que unifica las propiedades físicas del vehículo (`brand`, `model`, `year`, `color`, `condition`, `mileage`), la lista de imágenes subidas (`images`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`), vinculado al vendedor (`idUser`).
 * **`AUDIT_LOG`**: Registro inmutable de trazabilidad y eventos de seguridad del modelo AAA. Captura al usuario ejecutor (`idUser` nullable para eventos anónimos o no autenticados), rol (`role`), acción ejecutada (`action`, `method`, `endpoint`), dirección IP (`ipAddress`), telemetría de respuesta (`statusCode`, `latencyMs`), metadatos contextuales (`details`) y marca de tiempo (`timestamp`).
 
 #### Relaciones del Modelo
