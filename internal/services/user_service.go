@@ -55,13 +55,19 @@ type UserService interface {
 
 // userService es la implementación concreta de UserService
 type userService struct {
-	repo *repositories.UserRepository
+	repo    *repositories.UserRepository
+	pubRepo *repositories.PublicationRepository
 }
 
-// NewUserService crea e inyecta la dependencia del repositorio en el servicio
-func NewUserService(repo *repositories.UserRepository) UserService {
+// NewUserService crea e inyecta las dependencias de los repositorios en el servicio
+func NewUserService(repo *repositories.UserRepository, pubRepo ...*repositories.PublicationRepository) UserService {
+	var pr *repositories.PublicationRepository
+	if len(pubRepo) > 0 {
+		pr = pubRepo[0]
+	}
 	return &userService{
-		repo: repo,
+		repo:    repo,
+		pubRepo: pr,
 	}
 }
 
@@ -98,7 +104,6 @@ func (s *userService) Create(req CreateUserRequest) (*models.User, error) {
 		Role:     role,
 		Phone:    strings.TrimSpace(req.Phone),
 		City:     strings.TrimSpace(req.City),
-		IsActive: true,
 	}
 
 	created, err := s.repo.Create(newUser)
@@ -148,10 +153,6 @@ func (s *userService) Login(req LoginRequest) (*AuthResponse, error) {
 	user, err := s.repo.GetByEmail(email)
 	if err != nil {
 		return nil, errors.New("credenciales incorrectas")
-	}
-
-	if !user.IsActive {
-		return nil, errors.New("la cuenta de usuario se encuentra inactiva")
 	}
 
 	if !security.CheckPassword(req.Password, user.Password) {
@@ -258,11 +259,25 @@ func (s *userService) Update(idStr string, req UpdateUserRequest) (*models.User,
 	return &sanitized, nil
 }
 
-// Delete valida el identificador y elimina un usuario a través del repositorio
+// Delete valida el identificador, elimina en cascada las publicaciones asociadas y remueve el usuario
 func (s *userService) Delete(idStr string) error {
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
 		return errors.New("el ID del usuario debe ser un número entero positivo")
 	}
+
+	// 1. Validar existencia del usuario
+	if _, err := s.repo.GetByID(id); err != nil {
+		return err
+	}
+
+	// 2. Eliminar publicaciones asociadas (eliminación en cascada)
+	if s.pubRepo != nil {
+		if err := s.pubRepo.DeleteByUserID(id); err != nil {
+			return err
+		}
+	}
+
+	// 3. Eliminar el usuario
 	return s.repo.Delete(id)
 }

@@ -37,7 +37,6 @@ erDiagram
         string phone
         string city
         datetime createdAt
-        boolean isActive
     }
 
     PUBLICATION {
@@ -78,7 +77,7 @@ erDiagram
 
 ### Descripción de Entidades
 
-* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`), estado activo (`isActive`) y rol asignado (`role`: Admin, Seller) para el control de acceso basado en roles (RBAC).
+* **`USER`**: Almacena las credenciales de acceso (`email`, `password`), información del perfil (`name`, `phone`, `city`), fecha de creación (`createdAt`) y rol asignado (`role`: Admin, Seller) para el control de acceso basado en roles (RBAC).
 * **`PUBLICATION`**: Modelo consolidado con clave primaria `idPublication` que unifica las propiedades físicas del vehículo (`brand`, `model`, `year`, `color`, `condition`, `mileage`), la lista de imágenes subidas (`images`) y las condiciones del mercado (`price`, `description`, `status`, `isAuthorized`, `publishedAt`, `soldAt`), vinculado al vendedor (`idUser`).
 * **`AUDIT_LOG`**: Registro inmutable de trazabilidad y eventos de seguridad del modelo AAA. Captura al usuario ejecutor (`idUser` nullable para eventos anónimos o no autenticados), rol (`role`), acción ejecutada (`action`, `method`, `endpoint`), dirección IP (`ipAddress`), telemetría de respuesta (`statusCode`, `latencyMs`), metadatos contextuales (`details`) y marca de tiempo (`timestamp`).
 

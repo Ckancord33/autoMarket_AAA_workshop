@@ -197,3 +197,24 @@ func (r *PublicationRepository) Delete(id int) error {
 	delete(r.pubs, id)
 	return r.persistLocked()
 }
+
+// DeleteByUserID elimina en memoria y sincroniza a disco todas las publicaciones de un usuario (cascada)
+func (r *PublicationRepository) DeleteByUserID(userID int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	found := false
+	for id, p := range r.pubs {
+		if p.IDUser == userID {
+			delete(r.pubs, id)
+			found = true
+		}
+	}
+
+	if !found {
+		return nil
+	}
+
+	return r.persistLocked()
+}
+

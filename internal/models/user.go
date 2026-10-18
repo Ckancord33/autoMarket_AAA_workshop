@@ -17,5 +17,4 @@ type User struct {
 	Phone     string    `json:"phone"`
 	City      string    `json:"city"`
 	CreatedAt time.Time `json:"createdAt"`
-	IsActive  bool      `json:"isActive"`
 }

@@ -176,7 +176,7 @@ func (h *WebHandler) PublicationDetailView(c *gin.Context) {
 func (h *WebHandler) LoginView(c *gin.Context) {
 	if uid, role, ok := middleware.GetUserSession(c); ok {
 		// Validar si el usuario aún existe en la base de datos (no fue eliminado por el admin)
-		if u, err := h.userService.GetByID(uid); err == nil && u != nil && u.IsActive {
+		if u, err := h.userService.GetByID(uid); err == nil && u != nil {
 			if role == "admin" {
 				c.Redirect(http.StatusFound, "/admin")
 				return
@@ -203,7 +203,7 @@ func (h *WebHandler) LoginView(c *gin.Context) {
 func (h *WebHandler) RegisterView(c *gin.Context) {
 	if uid, role, ok := middleware.GetUserSession(c); ok {
 		// Validar si el usuario aún existe en la base de datos
-		if u, err := h.userService.GetByID(uid); err == nil && u != nil && u.IsActive {
+		if u, err := h.userService.GetByID(uid); err == nil && u != nil {
 			if role == "admin" {
 				c.Redirect(http.StatusFound, "/admin")
 				return
@@ -282,7 +282,7 @@ func (h *WebHandler) SellerDashboardView(c *gin.Context) {
 	uid, _ := strconv.Atoi(uidStr)
 
 	user, err := h.userService.GetByID(uidStr)
-	if err != nil || user == nil || !user.IsActive {
+	if err != nil || user == nil {
 		c.SetCookie("token", "", -1, "/", "", false, true)
 		c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Tu cuenta ha sido eliminada por el administrador."))
 		return

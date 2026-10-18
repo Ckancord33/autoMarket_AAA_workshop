@@ -15,13 +15,14 @@ func main() {
 	// 1. Inicializar repositorio de Auditoría AAA (data/audit_log.json)
 	auditRepo := repositories.NewAuditRepository("data/audit_log.json")
 
-	// 2. Inicializar capas del módulo Usuario (Persistencia JSON en data/user.json)
+	// 2. Inicializar repositorios de persistencia (Usuarios y Publicaciones)
 	userRepo := repositories.NewUserRepository("data/user.json")
-	userService := services.NewUserService(userRepo)
+	pubRepo := repositories.NewPublicationRepository("data/publication.json")
+
+	// 3. Inicializar capas de servicio (UserService con soporte de eliminación en cascada)
+	userService := services.NewUserService(userRepo, pubRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
-	// 3. Inicializar capas del módulo Publicación (Persistencia JSON en data/publication.json)
-	pubRepo := repositories.NewPublicationRepository("data/publication.json")
 	pubService := services.NewPublicationService(pubRepo)
 	pubHandler := handlers.NewPublicationHandler(pubService)
 
