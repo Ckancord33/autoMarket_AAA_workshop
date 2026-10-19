@@ -6,7 +6,6 @@ import (
 
 	"automarket/internal/middleware"
 	"automarket/internal/services"
-	"automarket/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,8 +22,8 @@ func NewUserHandler(us services.UserService) *UserHandler {
 	}
 }
 
-// RegisterRoutes registra las rutas web de autenticación y los endpoints de la API de usuarios.
-func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
+// RegisterRoutes registra las rutas web de autenticación y administración de usuarios.
+func (h *UserHandler) RegisterRoutes(router *gin.Engine) {
 	// --- Vistas Web y Acciones de Autenticación (Login, Registro y Logout) ---
 	router.GET("/login", h.LoginView)
 	router.POST("/login", h.ProcessLogin)
@@ -32,29 +31,12 @@ func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.Hand
 	router.POST("/register", h.ProcessRegister)
 	router.GET("/logout", h.ProcessLogout)
 
-	// --- Acción Web de Administrador para eliminar usuarios ---
+	// --- Acción Web de Administrador para eliminar usuarios (HU-ADM-01) ---
 	adminWeb := router.Group("/admin")
 	adminWeb.Use(middleware.RequireAuth())
 	adminWeb.Use(middleware.RequireRoles("admin"))
 	{
 		adminWeb.POST("/users/delete", h.DeleteUserWeb)
-	}
-
-	// --- Rutas Públicas de la API REST de Usuarios (/users) ---
-	userGroup := router.Group("/users")
-	userGroup.POST("/", h.CreateUser)
-	userGroup.POST("/login", h.Login)
-
-	// --- Rutas Protegidas de Administración de la API (/users/:id) ---
-	protected := userGroup.Group("/")
-	if authMiddleware != nil {
-		protected.Use(authMiddleware)
-	} else {
-		protected.Use(middleware.RequireAuth())
-	}
-	protected.Use(middleware.RequireRoles("admin"))
-	{
-		protected.DELETE("/:id", h.DeleteUser)
 	}
 }
 
@@ -167,54 +149,4 @@ func (h *UserHandler) DeleteUserWeb(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusSeeOther, "/admin")
-}
-
-// --- Métodos de API REST JSON (/users) ---
-
-// CreateUser maneja la petición POST para registrar un usuario
-func (h *UserHandler) CreateUser(c *gin.Context) {
-	var req services.CreateUserRequest
-
-	if err := c.ShouldBind(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Datos de registro inválidos", err)
-		return
-	}
-
-	authResp, err := h.userService.Register(req)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Error al registrar usuario", err)
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Usuario registrado exitosamente", authResp)
-}
-
-// Login maneja la petición POST para autenticar un usuario y devolver el token JWT
-func (h *UserHandler) Login(c *gin.Context) {
-	var req services.LoginRequest
-
-	if err := c.ShouldBind(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Formato de credenciales inválido", err)
-		return
-	}
-
-	authResp, err := h.userService.Login(req)
-	if err != nil {
-		response.Error(c, http.StatusUnauthorized, "Credenciales inválidas", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Inicio de sesión exitoso", authResp)
-}
-
-// DeleteUser maneja la petición DELETE para que un administrador elimine un usuario.
-func (h *UserHandler) DeleteUser(c *gin.Context) {
-	id := c.Param("id")
-
-	if err := h.userService.Delete(id); err != nil {
-		response.Error(c, http.StatusNotFound, "Error al eliminar usuario", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Usuario eliminado exitosamente", nil)
 }

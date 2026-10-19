@@ -14,7 +14,6 @@ import (
 	"automarket/internal/middleware"
 	"automarket/internal/models"
 	"automarket/internal/services"
-	"automarket/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,13 +30,10 @@ func NewPublicationHandler(ps services.PublicationService, us services.UserServi
 	}
 }
 
-func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
+func (h *PublicationHandler) RegisterRoutes(router *gin.Engine) {
 	// Catálogo público y ficha técnica (HU-VIS-01)
 	router.GET("/", h.IndexView)
 	router.GET("/publications/:id", h.PublicationDetailView)
-
-	// API REST Pública
-	router.GET("/publications/", h.GetAllPublication)
 
 	// Rutas protegidas para Vendedor (HU-VEN-01)
 	sellerGroup := router.Group("/seller")
@@ -57,24 +53,6 @@ func (h *PublicationHandler) RegisterRoutes(router *gin.Engine, authMiddleware g
 		adminGroup.GET("", h.AdminDashboardView)
 		adminGroup.POST("/publications/authorize", h.AuthorizePublication)
 		adminGroup.POST("/publications/delete", h.DeletePublication)
-	}
-
-	// API REST Protegida
-	pubGroup := router.Group("/publications")
-	protected := pubGroup.Group("/")
-	if authMiddleware != nil {
-		protected.Use(authMiddleware)
-	} else {
-		protected.Use(middleware.RequireAuth())
-	}
-	{
-		protected.POST("/", h.CreatePublicationAPI)
-		protected.PATCH("/:id", h.UpdatePublication)
-	}
-	adminPubGroup := protected.Group("/")
-	adminPubGroup.Use(middleware.RequireRoles("admin"))
-	{
-		adminPubGroup.POST("/:id/authorize", h.AuthorizePublicationAPI)
 	}
 }
 
@@ -115,17 +93,7 @@ func (h *PublicationHandler) PublicationDetailView(c *gin.Context) {
 
 	found, err := h.publicationService.GetByID(idStr)
 	if err != nil || found == nil {
-		if strings.Contains(c.GetHeader("Accept"), "application/json") {
-			response.Error(c, http.StatusNotFound, "Publicación no encontrada", err)
-			return
-		}
 		c.Redirect(http.StatusSeeOther, "/")
-		return
-	}
-
-	// Si es una petición API solicitando JSON exclusivamente
-	if strings.Contains(c.GetHeader("Accept"), "application/json") && !strings.Contains(c.GetHeader("Accept"), "text/html") {
-		response.Success(c, http.StatusOK, "Publicación obtenida exitosamente", found)
 		return
 	}
 
@@ -363,79 +331,4 @@ func (h *PublicationHandler) DeletePublication(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusSeeOther, "/admin")
-}
-
-// --- Endpoints de API REST JSON ---
-
-func (h *PublicationHandler) CreatePublicationAPI(c *gin.Context) {
-	var req services.CreatePublicationRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Datos de publicación inválidos", err)
-		return
-	}
-
-	if req.IDUser <= 0 {
-		if uidStr := c.GetString("userID"); uidStr != "" {
-			if uid, err := strconv.Atoi(uidStr); err == nil && uid > 0 {
-				req.IDUser = uid
-			}
-		}
-	}
-
-	publication, err := h.publicationService.Create(req)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Error interno del servidor", err)
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Publicación creada exitosamente", publication)
-}
-
-func (h *PublicationHandler) GetAllPublication(c *gin.Context) {
-	var filters services.PublicationFilterRequest
-
-	if err := c.ShouldBindQuery(&filters); err != nil {
-		response.Error(c, http.StatusBadRequest, "Filtros inválidos", err)
-		return
-	}
-
-	publications, err := h.publicationService.GetAll(filters)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Error al listar las publicaciones", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Publicaciones obtenidas exitosamente", publications)
-}
-
-func (h *PublicationHandler) UpdatePublication(c *gin.Context) {
-	id := c.Param("id")
-
-	var req services.UpdatePublicationRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Datos de actualización inválidos", err)
-		return
-	}
-
-	updatedPublication, err := h.publicationService.Update(id, req)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "No se pudo actualizar la publicación", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Publicación actualizada exitosamente", updatedPublication)
-}
-
-func (h *PublicationHandler) AuthorizePublicationAPI(c *gin.Context) {
-	id := c.Param("id")
-
-	authorizedPublication, err := h.publicationService.Authorize(id)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "No se pudo autorizar la publicación", err)
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Publicación autorizada exitosamente", authorizedPublication)
 }

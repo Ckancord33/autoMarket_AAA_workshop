@@ -34,11 +34,11 @@ func main() {
 	router.LoadHTMLGlob("web/templates/*.html")
 	router.Static("/static", "./web/static")
 
-	// 6. Registrar rutas y vistas del módulo de Usuarios (Login, Registro, /users)
-	userHandler.RegisterRoutes(router, nil)
+	// 6. Registrar rutas y vistas del módulo de Usuarios (Login, Registro, Panel Admin)
+	userHandler.RegisterRoutes(router)
 
-	// 7. Registrar rutas y vistas del módulo de Publicaciones (Catálogo, Panel Seller, Panel Admin, /publications)
-	pubHandler.RegisterRoutes(router, nil)
+	// 7. Registrar rutas y vistas del módulo de Publicaciones (Catálogo, Panel Seller, Panel Admin)
+	pubHandler.RegisterRoutes(router)
 
 	// 8. Iniciar el servidor en el puerto 8080
 	port := ":8080"
