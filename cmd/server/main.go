@@ -23,7 +23,7 @@ func main() {
 	// 3. Inicializar capas del módulo Publicación (Persistencia JSON en data/publication.json)
 	pubRepo := repositories.NewPublicationRepository("data/publication.json")
 	pubService := services.NewPublicationService(pubRepo)
-	pubHandler := handlers.NewPublicationHandler(pubService)
+	pubHandler := handlers.NewPublicationHandler(pubService, userService)
 
 	// 4. Inicializar router de Gin sin el logger genérico (usando gin.New)
 	router := gin.New()
@@ -34,17 +34,13 @@ func main() {
 	router.LoadHTMLGlob("web/templates/*.html")
 	router.Static("/static", "./web/static")
 
-	// 6. Registrar endpoints de la API de Usuarios (/users)
+	// 6. Registrar rutas y vistas del módulo de Usuarios (Login, Registro, /users)
 	userHandler.RegisterRoutes(router, nil)
 
-	// 7. Registrar endpoints de la API de Publicaciones (/publications)
+	// 7. Registrar rutas y vistas del módulo de Publicaciones (Catálogo, Panel Seller, Panel Admin, /publications)
 	pubHandler.RegisterRoutes(router, nil)
 
-	// 8. Registrar rutas para la interfaz Web SSR
-	webHandler := handlers.NewWebHandler(userService, pubService)
-	webHandler.RegisterWebRoutes(router)
-
-	// 9. Iniciar el servidor en el puerto 8080
+	// 8. Iniciar el servidor en el puerto 8080
 	port := ":8080"
 	log.Printf("💻 Servidor AutoMarket iniciando en http://localhost%s\n", port)
 	if err := router.Run(port); err != nil {
