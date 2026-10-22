@@ -137,7 +137,7 @@
                         {{end}}
                         {{if .Seller.Email}}
                             <a href="mailto:{{.Seller.Email}}?subject=Consulta sobre {{.Publication.Brand}} {{.Publication.Model}}" class="contact-btn btn-email">
-                                Enviar mensaje por correo
+                                {{.Seller.Email}}
                             </a>
                         {{end}}
                     </div>

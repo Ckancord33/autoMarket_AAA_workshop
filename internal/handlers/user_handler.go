@@ -1,15 +1,16 @@
 package handlers
 
 import (
+	"net/http"
+	"strings"
+
 	"automarket/internal/middleware"
 	"automarket/internal/services"
-	"automarket/pkg/response"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-// UserHandler actúa como un contenedor para las dependencias (el Service).
+// UserHandler actúa como el controlador para autenticación, gestión y vistas web de usuarios.
 type UserHandler struct {
 	userService services.UserService
 }
@@ -21,70 +22,131 @@ func NewUserHandler(us services.UserService) *UserHandler {
 	}
 }
 
-// RegisterRoutes registra las rutas de autenticación y moderación de usuarios
-func (h *UserHandler) RegisterRoutes(router *gin.Engine, authMiddleware gin.HandlerFunc) {
-	// --- Rutas Públicas de la API de Usuarios (HU-VEN-01 y Autenticación) ---
-	userGroup := router.Group("/users")
-	userGroup.POST("/", h.CreateUser)
-	userGroup.POST("/login", h.Login)
+// RegisterRoutes registra las rutas web de autenticación y administración de usuarios.
+func (h *UserHandler) RegisterRoutes(router *gin.Engine) {
+	// --- Vistas Web y Acciones de Autenticación (Login, Registro y Logout) ---
+	router.GET("/login", h.LoginView)
+	router.POST("/login", h.ProcessLogin)
+	router.GET("/register", h.RegisterView)
+	router.POST("/register", h.ProcessRegister)
+	router.GET("/logout", h.ProcessLogout)
 
-	// --- Rutas Protegidas de Administración (HU-ADM-01: Eliminar usuarios) ---
-	protected := userGroup.Group("/")
-	if authMiddleware != nil {
-		protected.Use(authMiddleware)
-	} else {
-		protected.Use(middleware.RequireAuth())
-	}
-	protected.Use(middleware.RequireRoles("admin"))
+	// --- Acción Web de Administrador para eliminar usuarios (HU-ADM-01) ---
+	adminWeb := router.Group("/admin")
+	adminWeb.Use(middleware.RequireAuth())
+	adminWeb.Use(middleware.RequireRoles("admin"))
 	{
-		protected.DELETE("/:id", h.DeleteUser)
+		adminWeb.POST("/users/delete", h.DeleteUserWeb)
 	}
 }
 
-// CreateUser maneja la petición POST para registrar un usuario
-func (h *UserHandler) CreateUser(c *gin.Context) {
-	var req services.CreateUserRequest
+// --- Métodos de Vistas Web (SSR) ---
 
-	if err := c.ShouldBind(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Datos de registro inválidos", err)
-		return
+// LoginView muestra el formulario de login
+func (h *UserHandler) LoginView(c *gin.Context) {
+	if uid, role, ok := middleware.GetUserSession(c); ok {
+		if u, err := h.userService.GetByID(uid); err == nil && u != nil {
+			if role == "admin" {
+				c.Redirect(http.StatusFound, "/admin")
+				return
+			}
+			c.Redirect(http.StatusFound, "/seller")
+			return
+		}
+		c.SetCookie("token", "", -1, "/", "", false, true)
 	}
 
-	authResp, err := h.userService.Register(req)
+	data := gin.H{}
+	if errMsg := c.Query("error"); errMsg != "" {
+		data["Error"] = errMsg
+	}
+	if msg := c.Query("success"); msg != "" {
+		data["Success"] = msg
+	}
+
+	c.HTML(http.StatusOK, "login.html", data)
+}
+
+// RegisterView muestra el formulario de registro de vendedor
+func (h *UserHandler) RegisterView(c *gin.Context) {
+	if uid, role, ok := middleware.GetUserSession(c); ok {
+		if u, err := h.userService.GetByID(uid); err == nil && u != nil {
+			if role == "admin" {
+				c.Redirect(http.StatusFound, "/admin")
+				return
+			}
+			c.Redirect(http.StatusFound, "/seller")
+			return
+		}
+		c.SetCookie("token", "", -1, "/", "", false, true)
+	}
+
+	c.HTML(http.StatusOK, "register.html", gin.H{})
+}
+
+// ProcessLogin maneja el inicio de sesión desde formulario HTML nativo
+func (h *UserHandler) ProcessLogin(c *gin.Context) {
+	email := strings.TrimSpace(c.PostForm("email"))
+	password := strings.TrimSpace(c.PostForm("password"))
+
+	authResp, err := h.userService.Login(services.LoginRequest{
+		Email:    email,
+		Password: password,
+	})
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Error al registrar usuario", err)
+		c.HTML(http.StatusBadRequest, "login.html", gin.H{
+			"Error": err.Error(),
+		})
 		return
 	}
 
-	response.Success(c, http.StatusCreated, "Usuario registrado exitosamente", authResp)
+	c.SetCookie("token", authResp.Token, 86400, "/", "", false, true)
+
+	if authResp.User.Role == "admin" {
+		c.Redirect(http.StatusFound, "/admin")
+		return
+	}
+	c.Redirect(http.StatusFound, "/seller")
 }
 
-// Login maneja la petición POST para autenticar un usuario y devolver el token JWT
-func (h *UserHandler) Login(c *gin.Context) {
-	var req services.LoginRequest
+// ProcessRegister crea un vendedor desde formulario HTML nativo (HU-VEN-01)
+func (h *UserHandler) ProcessRegister(c *gin.Context) {
+	name := strings.TrimSpace(c.PostForm("name"))
+	email := strings.TrimSpace(c.PostForm("email"))
+	phone := strings.TrimSpace(c.PostForm("phone"))
+	city := strings.TrimSpace(c.PostForm("city"))
+	password := strings.TrimSpace(c.PostForm("password"))
 
-	if err := c.ShouldBind(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Formato de credenciales inválido", err)
-		return
-	}
-
-	authResp, err := h.userService.Login(req)
+	authResp, err := h.userService.Register(services.CreateUserRequest{
+		Name:     name,
+		Email:    email,
+		Phone:    phone,
+		City:     city,
+		Password: password,
+	})
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, "Credenciales inválidas", err)
+		c.HTML(http.StatusBadRequest, "register.html", gin.H{
+			"Error": err.Error(),
+		})
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Inicio de sesión exitoso", authResp)
+	c.SetCookie("token", authResp.Token, 86400, "/", "", false, true)
+	c.Redirect(http.StatusFound, "/seller")
 }
 
-// DeleteUser maneja la petición DELETE para que un administrador elimine un usuario.
-func (h *UserHandler) DeleteUser(c *gin.Context) {
-	id := c.Param("id")
+// ProcessLogout finaliza la sesión borrando la cookie
+func (h *UserHandler) ProcessLogout(c *gin.Context) {
+	c.SetCookie("token", "", -1, "/", "", false, true)
+	c.Redirect(http.StatusFound, "/")
+}
 
-	if err := h.userService.Delete(id); err != nil {
-		response.Error(c, http.StatusNotFound, "Error al eliminar usuario", err)
-		return
+// DeleteUserWeb elimina un usuario realmente de data/user.json desde el panel admin web
+func (h *UserHandler) DeleteUserWeb(c *gin.Context) {
+	userID := strings.TrimSpace(c.PostForm("idUser"))
+	if userID != "" {
+		_ = h.userService.Delete(userID)
 	}
 
-	response.Success(c, http.StatusOK, "Usuario eliminado exitosamente", nil)
+	c.Redirect(http.StatusSeeOther, "/admin")
 }

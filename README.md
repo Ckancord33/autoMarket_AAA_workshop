@@ -1,6 +1,6 @@
 # AutoMarket - Workshop
 
-AutoMarket es una plataforma web para la comercialización de vehículos usados desarrollada en **Go** sobre el framework **Gin**. El proyecto implementa un esquema integral de seguridad basado en el modelo **AAA (Authentication, Authorization, Auditing)** utilizando exclusivamente las librerías nativas del lenguaje, garantizando un control granular de acceso y trazabilidad sin dependencias externas de seguridad.
+AutoMarket es una plataforma web para la comercialización de vehículos usados desarrollada en **Go** sobre el framework **Gin**. El sistema opera como un **servicio de renderizado en servidor (Server-Side Rendering - SSR)** con plantillas HTML dinámicas, integrando un esquema integral de seguridad basado en el modelo **AAA (Authentication, Authorization, Auditing)** construido exclusivamente con las librerías nativas del lenguaje. Toda la experiencia de usuario, autenticación de sesiones basada en cookies seguras y administración de publicaciones se procesa directamente en el servidor sin dependencias de frameworks cliente externos.
 
 ---
 
@@ -8,9 +8,9 @@ AutoMarket es una plataforma web para la comercialización de vehículos usados 
 
 El núcleo del taller consiste en diseñar e integrar un ecosistema de seguridad autónomo y desacoplado de suites de terceros (como librerías externas de JWT u OAuth):
 
-* **Authentication (Autenticación):** Emisión y validación de tokens de sesión firmados criptográficamente mediante hashes simétricos **HMAC-SHA256**. El mecanismo codifica el payload en base64 URL-safe, verifica la integridad y valida la expiración temporal de forma determinista.
-* **Authorization (Autorización - RBAC):** Control de acceso basado en roles (**Admin**, **Seller**) ejecutado mediante middlewares interceptores en Gin. Cada solicitud es evaluada contra los permisos requeridos por la ruta antes de despachar el controlador.
-* **Auditing (Auditoría):** Captura y persistencia de trazas operativas no bloqueantes (`sync.RWMutex` / estructuras en memoria y logs estándar). Se audita quién ejecuta la acción, el recurso accedido, el método HTTP, la dirección IP de origen, el código de estado retornado y la latencia de respuesta.
+* **Authentication (Autenticación):** Emisión y validación de tokens de sesión firmados criptográficamente mediante hashes simétricos **HMAC-SHA256**. El mecanismo codifica el payload en base64 URL-safe, verifica la integridad, valida la expiración temporal de forma determinista y persiste la sesión de navegación en cookies HTTP seguras (`httpOnly`).
+* **Authorization (Autorización - RBAC):** Control de acceso basado en roles (**Admin**, **Seller**) ejecutado mediante middlewares interceptores en Gin. Cada solicitud a vistas protegidas (`/seller`, `/admin`) es evaluada contra los permisos requeridos antes de despachar el controlador y renderizar la plantilla HTML.
+* **Auditing (Auditoría):** Captura y persistencia de trazas operativas no bloqueantes (`sync.RWMutex` / estructuras en memoria y persistencia JSON en `data/audit_log.json`). Se audita quién ejecuta la acción, el recurso accedido, el método HTTP, la dirección IP de origen, el código de estado retornado y la latencia de respuesta en milisegundos.
 
 ---
 
@@ -88,56 +88,69 @@ erDiagram
 
 ---
 
-## Arquitectura del Proyecto
+## Arquitectura del Proyecto: Servicio Web SSR
 
-El código está estructurado bajo una arquitectura por capas (*Layered Architecture*) siguiendo las convenciones de organización de Go:
+El sistema está estructurado bajo una **arquitectura por capas (*Layered Architecture*)** desacoplada y opera como un **servicio de renderizado en el servidor (Server-Side Rendering - SSR)**:
+
+1. **Capa de Presentación Web (SSR con Gin):** El motor web compila las plantillas ubicadas en `web/templates/` mediante `router.LoadHTMLGlob()`. Los controladores responden inyectando modelos directamente en las vistas HTML (`c.HTML()`), evitando dependencias de navegadores pesados o frameworks de JavaScript en el cliente.
+2. **Navegación e Interacción:** El flujo de usuario (autenticación, registro, publicación con carga de archivos binarios en `web/static/uploads`, reporte de venta y moderación) se basa en formularios estándar HTML5 (`POST`) y enlaces de navegación semántica (`GET`).
+3. **Gestión de Sesión Criptográfica:** El token de autenticación (JWT nativo HMAC-SHA256) emitido al iniciar sesión se almacena de forma persistente en una cookie HTTP (`Set-Cookie: token`), permitiendo que el middleware intercepte y valide la identidad del usuario en cada solicitud de página web de manera transparente.
+4. **Capa de Servicios y Dominio:** Los controladores delegan la lógica a `services/`, quienes aplican las reglas de negocio y consumen la capa de persistencia `repositories/`.
+5. **Persistencia Concurrente:** El almacenamiento opera sobre archivos JSON en el directorio `data/` usando exclusión mutua (`sync.RWMutex`) para garantizar consistencia y lecturas O(1) en memoria.
 
 ```plaintext
-marketplace/
+autoMarket_AAA_workshop/
 ├── cmd/
 │   └── server/
-│       └── main.go              # Punto de entrada. Inicializa Gin y arranca el servidor.
-├── data/                        # Persistencia local en archivos JSON (Runtime)
-│   ├── .gitkeep                 
+│       └── main.go                  # Punto de entrada. Inicializa Gin, middlewares y plantillas.
+├── data/                            # Persistencia local en archivos JSON (Runtime)
+│   ├── audit_log.json               # Trazas de auditoría operacional AAA
+│   ├── publication.json             # Catálogo de vehículos y ofertas
+│   └── user.json                    # Cuentas, credenciales y roles de usuario
 ├── internal/
-│   ├── models/                  # Entidades de dominio y definiciones de structs
-│   │   ├── user.go              # Entidad User y roles (Admin, Seller)
-│   │   ├── publication.go       # Entidad Publication y especificaciones del vehículo
-│   │   └── audit_log.go         # Entidad AuditLog para trazabilidad AAA
+│   ├── models/                      # Entidades de dominio
+│   │   ├── audit_log.go             # Entidad AuditLog para trazabilidad AAA
+│   │   ├── publication.go           # Entidad Publication y especificaciones del vehículo
+│   │   └── user.go                  # Entidad User y roles (Admin, Seller)
 │   │
-│   ├── handlers/                # Controladores HTTP de Gin (Transporte)
-│   │   ├── user_handler.go      # Handlers de autenticación y usuarios
-│   │   └── car_handler.go       # Handlers de vehículos y publicaciones
+│   ├── handlers/                    # Controladores web (Transporte y Renderizado SSR)
+│   │   ├── publication_handler.go   # Vistas de catálogo, detalle, vendedor y admin
+│   │   └── user_handler.go          # Vistas de login, registro, logout y administración
 │   │
-│   ├── middleware/              # Interceptores del modelo AAA
-│   │   ├── auth.go              # Validación criptográfica de tokens nativos
-│   │   ├── rbac.go              # Verificación de roles permitidos
-│   │   └── audit.go             # Captura y almacenamiento de registros de auditoría
+│   ├── middleware/                  # Interceptores del modelo AAA
+│   │   ├── audit.go                 # Trazabilidad operativa asíncrona no bloqueante
+│   │   └── auth.go                  # Validación criptográfica JWT y control RBAC
 │   │
-│   ├── services/                # Casos de uso y reglas de negocio puras
-│   │   ├── user_service.go      # Lógica de registro, emisión de credenciales y permisos
-│   │   └── car_service.go       # Flujo de publicación, moderación y venta
+│   ├── services/                    # Casos de uso y reglas de negocio puras
+│   │   ├── publication_service.go   # Flujo de publicación, moderación, venta y consulta
+│   │   └── user_service.go          # Lógica de registro, hash de claves, login y permisos
 │   │
-│   └── repositories/            # Capa de persistencia (Operaciones sobre archivos JSON)
-│       ├── user_repo.go         # Lectura y escritura sobre data/user.json
-│       └── car_repo.go          # Lectura y escritura sobre publicaciones e imágenes
+│   └── repositories/                # Capa de persistencia (Operaciones sobre archivos JSON)
+│       ├── audit_repo.go            # Almacenamiento seguro e indexado de logs de auditoría
+│       ├── publication_repo.go      # Lectura y escritura concurrente de publicaciones
+│       └── user_repo.go             # Lectura y escritura concurrente de usuarios
 │
-├── pkg/                         # Módulos transversales desacoplados del dominio
-│   ├── database/                # Helpers de persistencia, I/O y bloqueo concurrente
+├── pkg/                             # Módulos transversales desacoplados del dominio
 │   ├── response/
-│   │   └── http_response.go     # Formato estándar de respuestas JSON
-│   └── security/                # Utilidades de seguridad criptográfica nativa (AAA)
-│       └── password.go          # Hash seguro con salt aleatorio (SHA-256)
+│   │   └── http_response.go         # Formato estándar de respuestas y errores de seguridad
+│   └── security/                    # Utilidades de seguridad criptográfica nativa (AAA)
+│       ├── jwt.go                   # Generación y validación HMAC-SHA256 de tokens
+│       └── password.go              # Hash seguro con salt aleatorio (SHA-256)
 │
-├── web/                         # Vistas y assets estáticos (SSR con Gin)
-│   ├── static/                  # Archivos estáticos
-│   │   ├── css/                 # Hojas de estilo CSS (main.css)
-│   │   └── uploads/             # Almacenamiento local de imágenes de los autos
-│   └── templates/               # Plantillas HTML procesadas por el motor web (.html)
+├── web/                             # Capa de presentación (SSR con Gin)
+│   ├── static/                      # Archivos estáticos servidos en /static
+│   │   ├── css/                     # Estilos visuales de la aplicación (main.css)
+│   │   └── uploads/                 # Fotografías subidas de los automotores
+│   └── templates/                   # Plantillas HTML procesadas por el motor web
+│       ├── admin.html               # Panel de moderación y gestión para el Administrador
+│       ├── index.html               # Catálogo público de vehículos
+│       ├── login.html               # Formulario de inicio de sesión
+│       ├── publication_detail.html  # Ficha técnica del vehículo y contacto del vendedor
+│       ├── register.html            # Formulario de registro de vendedores
+│       └── seller.html              # Panel de publicación y gestión para el Vendedor
 │
 ├── config/
-│   └── config.go                # Constantes y configuración interna del proyecto
-│
+│   └── config.go                    # Constantes y configuración interna del proyecto
 ├── go.mod
 └── go.sum
 ```
@@ -149,14 +162,14 @@ marketplace/
 ### Prerrequisitos
 
 * **Go**: Versión 1.22 o superior instalada.
-* **Persistencia sin base de datos externa**: Por requerimientos del taller no se utilizan dependencias externas más allá del framework **Gin**. El almacenamiento y persistencia de datos se gestiona directamente en archivos JSON dentro del directorio `data/` (`user.json`, etc.) empleando las librerías estándar de Go (`encoding/json`, `os`, `sync`).
+* **Persistencia sin base de datos externa**: Por requerimientos del taller no se utilizan dependencias externas más allá del framework **Gin**. El almacenamiento y persistencia de datos se gestiona directamente en archivos JSON dentro del directorio `data/` (`user.json`, `publication.json`, `audit_log.json`) empleando las librerías estándar de Go (`encoding/json`, `os`, `sync`).
 
 ### Pasos de Ejecución
 
 1. **Clonar el repositorio:**
    ```bash
    git clone <URL_DEL_REPOSITORIO>
-   cd marketplace
+   cd autoMarket_AAA_workshop
    ```
 
 2. **Descargar dependencias:**
@@ -169,8 +182,8 @@ marketplace/
    go run cmd/server/main.go
    ```
 
-4. **Acceso al servicio:**
-   El servicio estará disponible en `http://localhost:8080`.
+4. **Acceso a la plataforma web:**
+   Abre tu navegador en `http://localhost:8080`.
 
 ---
 

@@ -96,25 +96,31 @@ func AuditMiddleware(repo *repositories.AuditRepository) gin.HandlerFunc {
 // resolveAction infiere una acción de seguridad semántica a partir de la ruta y el verbo HTTP.
 func resolveAction(method, path string) string {
 	switch {
-	case method == "POST" && (path == "/login" || path == "/users/login"):
+	case method == "POST" && path == "/login":
 		return "AUTH_LOGIN"
-	case method == "POST" && strings.HasPrefix(path, "/users"):
+	case method == "GET" && path == "/logout":
+		return "AUTH_LOGOUT"
+	case method == "POST" && path == "/register":
 		return "USER_REGISTER"
-	case method == "GET" && strings.HasPrefix(path, "/users/management"):
-		return "ADMIN_LIST_USERS"
-	case method == "PATCH" && strings.HasPrefix(path, "/users/management"):
-		return "ADMIN_UPDATE_USER"
-	case method == "GET" && strings.HasPrefix(path, "/users"):
-		return "USER_GET_PROFILE"
-	case method == "PATCH" && strings.HasPrefix(path, "/users"):
-		return "USER_UPDATE_PROFILE"
-	case method == "POST" && strings.HasPrefix(path, "/publications"):
+	case method == "POST" && path == "/seller/publications":
 		return "PUBLICATION_CREATE"
-	case method == "PATCH" && strings.HasPrefix(path, "/publications"):
-		return "PUBLICATION_UPDATE"
-	case method == "GET" && strings.HasPrefix(path, "/publications"):
-		return "PUBLICATION_READ"
-	case path == "/" || path == "/login":
+	case method == "POST" && path == "/seller/publications/sell":
+		return "PUBLICATION_REPORT_SALE"
+	case method == "POST" && path == "/admin/publications/authorize":
+		return "ADMIN_AUTHORIZE_PUBLICATION"
+	case method == "POST" && path == "/admin/publications/delete":
+		return "ADMIN_DELETE_PUBLICATION"
+	case method == "POST" && path == "/admin/users/delete":
+		return "ADMIN_DELETE_USER"
+	case method == "GET" && path == "/seller":
+		return "VIEW_SELLER_DASHBOARD"
+	case method == "GET" && path == "/admin":
+		return "VIEW_ADMIN_DASHBOARD"
+	case method == "GET" && strings.HasPrefix(path, "/publications/"):
+		return "VIEW_PUBLICATION_DETAIL"
+	case path == "/":
+		return "VIEW_CATALOG"
+	case path == "/login" || path == "/register":
 		return "VIEW_SSR"
 	default:
 		return method + " " + path
